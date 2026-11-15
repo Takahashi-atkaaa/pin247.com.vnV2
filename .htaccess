@@ -1,0 +1,42 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # --- Static assets & uploads ---
+    #
+    # Khi chạy dưới XAMPP (DocumentRoot trỏ tới thư mục gốc dự án), các file
+    # tĩnh nằm trong `public/` cần được phục vụ tại đường dẫn gốc.
+    #
+    # /duanma/build/...   -> /duanma/public/build/...
+    # /duanma/storage/... -> /duanma/public/storage/...
+    #
+    # Lưu ý: .htaccess dùng per-directory context nên prefix thư mục đã bị
+    # Apache cắt bỏ -> pattern bắt đầu bằng `build/` chứ không phải `duanma/`.
+
+    RewriteCond %{REQUEST_URI} /build/
+    RewriteRule ^build/(.*)$ public/build/$1 [L]
+
+    RewriteCond %{REQUEST_URI} /storage/
+    RewriteRule ^storage/(.*)$ public/storage/$1 [L]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
