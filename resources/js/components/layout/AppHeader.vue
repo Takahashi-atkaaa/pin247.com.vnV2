@@ -4,9 +4,14 @@
         <div class="hidden sm:block bg-brand-600 text-white text-xs">
             <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
                 <span>Chuyên pin lithium, pin máy khoan, mạch BMS — Hàng chính hãng</span>
-                <RouterLink to="/order-tracking" class="hover:underline font-medium">
-                    Tra cứu đơn hàng
-                </RouterLink>
+                <div class="flex items-center gap-4">
+                    <RouterLink to="/bang-gia" class="hover:underline font-medium">
+                        Bảng giá
+                    </RouterLink>
+                    <RouterLink to="/order-tracking" class="hover:underline font-medium">
+                        Tra cứu đơn hàng
+                    </RouterLink>
+                </div>
             </div>
         </div>
 
@@ -55,14 +60,24 @@
                 </RouterLink>
 
                 <RouterLink
-                    v-if="auth.isAuthenticated"
+                    v-if="auth.isAuthenticated && auth.isAdmin"
                     to="/admin/dashboard"
                     class="hidden md:inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                     </svg>
-                    {{ auth.isAdmin ? 'Quản trị' : 'Tài khoản' }}
+                    Quản trị
+                </RouterLink>
+                <RouterLink
+                    v-else-if="auth.isAuthenticated"
+                    to="/tai-khoan"
+                    class="hidden md:inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-100 rounded-lg transition"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                    {{ auth.user?.name || 'Tài khoản' }}
                 </RouterLink>
                 <RouterLink
                     v-else
@@ -122,7 +137,7 @@
             <div v-if="mobileMenuOpen" class="md:hidden fixed inset-0 z-50 bg-black/40" @click.self="mobileMenuOpen = false">
                 <div class="bg-white max-h-[80vh] overflow-y-auto shadow-lg">
                     <div class="flex items-center justify-between px-4 h-14 border-b border-gray-200 sticky top-0 bg-white">
-                        <span class="font-semibold text-gray-900">Danh mục</span>
+                        <span class="font-semibold text-gray-900">Menu</span>
                         <button
                             class="w-11 h-11 -mr-2 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
                             @click="mobileMenuOpen = false"
@@ -135,13 +150,25 @@
                     </div>
 
                     <ul class="px-4 py-2">
-                        <li v-for="category in catalog.categories" :key="category.id">
+                        <li>
                             <RouterLink
-                                :to="{ name: 'products', query: { category: category.slug } }"
-                                class="flex items-center justify-between py-3 text-sm font-medium text-gray-700 border-b border-gray-100 last:border-0"
+                                to="/"
+                                class="flex items-center justify-between py-3 text-sm font-medium text-gray-700 border-b border-gray-100"
                                 @click="mobileMenuOpen = false"
                             >
-                                {{ category.name }}
+                                Trang chủ
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </RouterLink>
+                        </li>
+                        <li>
+                            <RouterLink
+                                :to="{ name: 'products' }"
+                                class="flex items-center justify-between py-3 text-sm font-medium text-gray-700 border-b border-gray-100"
+                                @click="mobileMenuOpen = false"
+                            >
+                                Tất cả sản phẩm
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                                 </svg>
@@ -149,12 +176,42 @@
                         </li>
                         <li class="pt-2 pb-3">
                             <RouterLink
-                                v-if="auth.isAuthenticated"
+                                to="/bang-gia"
+                                class="flex items-center justify-between py-3 text-sm font-medium text-gray-700 border-b border-gray-100"
+                                @click="mobileMenuOpen = false"
+                            >
+                                Bảng giá
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </RouterLink>
+                            <RouterLink
+                                to="/order-tracking"
+                                class="flex items-center justify-between py-3 text-sm font-medium text-gray-700 border-b border-gray-100"
+                                @click="mobileMenuOpen = false"
+                            >
+                                Tra cứu đơn hàng
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </RouterLink>
+                        </li>
+                        <li class="pt-2 pb-3">
+                            <RouterLink
+                                v-if="auth.isAuthenticated && auth.isAdmin"
                                 to="/admin/dashboard"
                                 class="block py-3 text-sm font-semibold text-brand-600"
                                 @click="mobileMenuOpen = false"
                             >
-                                {{ auth.isAdmin ? 'Quản trị' : 'Tài khoản' }}
+                                Quản trị
+                            </RouterLink>
+                            <RouterLink
+                                v-else-if="auth.isAuthenticated"
+                                to="/tai-khoan"
+                                class="block py-3 text-sm font-semibold text-brand-600"
+                                @click="mobileMenuOpen = false"
+                            >
+                                Tài khoản của tôi
                             </RouterLink>
                             <RouterLink
                                 v-else
@@ -173,21 +230,15 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import ProductSearch from '../ProductSearch.vue';
 import { useCartStore } from '../../stores/cart';
 import { useAuthStore } from '../../stores/auth';
-import { useCatalogStore } from '../../stores/catalog';
 
 const cart = useCartStore();
 const auth = useAuthStore();
-const catalog = useCatalogStore();
 
 const mobileMenuOpen = ref(false);
 const searchOpen = ref(false);
-
-onMounted(() => {
-    catalog.fetchCategories().catch(() => {});
-});
 </script>

@@ -1,16 +1,19 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\BigSellerController as AdminBigSellerController;
 use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\InventoryController as AdminInventoryController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\PriceListController as AdminPriceListController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PriceListController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +42,13 @@ Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('thro
 Route::post('/orders/track', [CheckoutController::class, 'track'])->middleware('throttle:20,1');
 
 // ---------------------------------------------------------------------------
+// Bảng giá — PUBLIC, khách xem không cần đăng nhập
+// ---------------------------------------------------------------------------
+Route::get('/price-list', [PriceListController::class, 'index']);
+Route::get('/price-list/documents', [PriceListController::class, 'documents']);
+Route::get('/price-list/documents/{document}/download', [PriceListController::class, 'download']);
+
+// ---------------------------------------------------------------------------
 // Người dùng đã đăng nhập
 // ---------------------------------------------------------------------------
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -54,6 +64,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+
+    // Trang thông tin người dùng (Tài khoản của tôi)
+    Route::get('/account/profile', [AccountController::class, 'profile']);
+    Route::put('/account/profile', [AccountController::class, 'updateProfile']);
+    Route::put('/account/password', [AccountController::class, 'updatePassword']);
+    Route::get('/account/orders', [AccountController::class, 'orders']);
+    Route::get('/account/summary', [AccountController::class, 'summary']);
 });
 
 // ---------------------------------------------------------------------------
@@ -97,6 +114,20 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // Khách hàng
     Route::get('/customers', [AdminCustomerController::class, 'index']);
     Route::get('/customers/{customer}', [AdminCustomerController::class, 'show']);
+
+    // Bảng giá
+    Route::get('/price-list', [AdminPriceListController::class, 'index']);
+    Route::post('/price-list/tiers', [AdminPriceListController::class, 'storeTier']);
+    Route::put('/price-list/tiers/{tier}', [AdminPriceListController::class, 'updateTier']);
+    Route::delete('/price-list/tiers/{tier}', [AdminPriceListController::class, 'destroyTier']);
+    Route::post('/price-list/import', [AdminPriceListController::class, 'import']);
+    Route::get('/price-list/import-template', [AdminPriceListController::class, 'importTemplate']);
+    Route::get('/price-list/export', [AdminPriceListController::class, 'export']);
+    Route::get('/price-list/documents', [AdminPriceListController::class, 'documents']);
+    Route::post('/price-list/documents', [AdminPriceListController::class, 'uploadDocument']);
+    Route::put('/price-list/documents/{document}', [AdminPriceListController::class, 'updateDocument']);
+    Route::delete('/price-list/documents/{document}', [AdminPriceListController::class, 'destroyDocument']);
+    Route::get('/price-list/documents/{document}/download', [AdminPriceListController::class, 'downloadDocument']);
 
     // BigSeller
     Route::get('/bigseller/status', [AdminBigSellerController::class, 'status']);

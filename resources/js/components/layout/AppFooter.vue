@@ -36,6 +36,8 @@
             <div>
                 <h3 class="text-white font-semibold mb-4">Hỗ trợ</h3>
                 <ul class="space-y-2 text-sm">
+                    <li><RouterLink to="/tai-khoan" class="hover:text-brand-400 transition">Tài khoản của tôi</RouterLink></li>
+                    <li><RouterLink to="/bang-gia" class="hover:text-brand-400 transition">Bảng giá</RouterLink></li>
                     <li><RouterLink to="/order-tracking" class="hover:text-brand-400 transition">Tra cứu đơn hàng</RouterLink></li>
                     <li><span class="hover:text-brand-400 transition cursor-pointer">Chính sách bảo hành</span></li>
                     <li><span class="hover:text-brand-400 transition cursor-pointer">Chính sách vận chuyển</span></li>

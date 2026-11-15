@@ -68,6 +68,14 @@ class Sku extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    /**
+     * Các bậc giá theo số lượng yêu cầu.
+     */
+    public function priceTiers(): HasMany
+    {
+        return $this->hasMany(PriceTier::class)->orderBy('min_qty');
+    }
+
     public function snapshots(): HasMany
     {
         return $this->hasMany(InventorySnapshot::class);

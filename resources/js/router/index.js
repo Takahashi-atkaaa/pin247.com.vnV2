@@ -30,6 +30,12 @@ const routes = [
                 meta: { title: 'Sản phẩm - PIN247', pinCategories: true },
             },
             {
+                path: 'bang-gia',
+                name: 'price-list',
+                component: () => import('../pages/PriceListPage.vue'),
+                meta: { title: 'Bảng giá - PIN247' },
+            },
+            {
                 path: 'products/:slug',
                 name: 'product-detail',
                 component: () => import('../pages/ProductDetailPage.vue'),
@@ -52,6 +58,12 @@ const routes = [
                 name: 'order-tracking',
                 component: () => import('../pages/OrderTrackingPage.vue'),
                 meta: { title: 'Tra cứu đơn hàng - PIN247' },
+            },
+            {
+                path: 'tai-khoan',
+                name: 'account',
+                component: () => import('../pages/AccountPage.vue'),
+                meta: { title: 'Tài khoản của tôi - PIN247', requiresAuth: true },
             },
             {
                 path: 'login',
@@ -102,6 +114,12 @@ const routes = [
                 name: 'admin-orders',
                 component: () => import('../pages/admin/OrdersPage.vue'),
                 meta: { title: 'Quản lý đơn hàng - Admin PIN247' },
+            },
+            {
+                path: 'bang-gia',
+                name: 'admin-price-list',
+                component: () => import('../pages/admin/PriceListPage.vue'),
+                meta: { title: 'Quản lý bảng giá - Admin PIN247' },
             },
             {
                 path: 'customers',

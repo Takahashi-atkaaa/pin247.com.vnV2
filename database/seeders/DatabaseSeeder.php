@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             BigSellerConnectionSeeder::class,
             ProductSeeder::class,
+            PriceTierSeeder::class,
         ]);
     }
 }

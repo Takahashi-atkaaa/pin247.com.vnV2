@@ -17,6 +17,8 @@ class Customer extends Model
         'ward',
         'district',
         'province',
+        'total_orders',
+        'total_spent',
         'note',
     ];
 

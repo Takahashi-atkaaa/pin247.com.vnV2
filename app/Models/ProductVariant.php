@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProductVariant extends Model
@@ -54,6 +55,19 @@ class ProductVariant extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Các bậc giá theo số lượng yêu cầu (qua SKU của biến thể).
+     */
+    public function priceTiers(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            PriceTier::class,
+            Sku::class,
+            'product_variant_id',
+            'sku_id',
+        )->orderBy('min_qty');
     }
 
     public function bigSellerMapping(): HasOne
