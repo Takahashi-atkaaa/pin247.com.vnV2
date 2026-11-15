@@ -267,7 +267,31 @@ class MockBigSellerClient implements BigSellerClient
             }
         }
 
-        $code = 'BS-MOCK-'.str_pad((string) (++$this->orderSequence), 6, '0', STR_PAD_LEFT);
+        // ------------------------------------------------------------------
+        // Sinh mã đơn BigSeller MOCK.
+        //
+        // YÊU CẦU: mã phải (a) DUY NHẤT toàn hệ thống, (b) ỔN ĐỊNH khi
+        // retry cùng một đơn — đúng như hành vi thật của BigSeller với
+        // `idempotency_key`.
+        //
+        // BUG ĐÃ GẶP (đã sửa): trước đây dùng counter trong RAM
+        // (`++$this->orderSequence`) => mỗi HTTP request là một instance
+        // mới nên MỌI đơn đều nhận mã `BS-MOCK-000001` => đơn thứ 2 trở
+        // đi vi phạm unique index `bigseller_order_mappings.bigseller_order_code`.
+        //
+        // Cách sửa: mã suy ra từ hash của `idempotency_key` =>
+        //   - duy nhất (khác nhau theo từng đơn),
+        //   - ổn định (retry cùng đơn -> cùng mã, không tạo đơn trùng).
+        // ------------------------------------------------------------------
+        if ($idempotencyKey !== '') {
+            $code = 'BS-MOCK-'.strtoupper(substr(hash('sha256', $idempotencyKey), 0, 10));
+        } else {
+            // Không có key (gọi trực tiếp ngoài luồng đơn hàng) -> dùng
+            // sequence + random để vẫn đảm bảo duy nhất.
+            $code = 'BS-MOCK-'
+                .str_pad((string) (++$this->orderSequence), 6, '0', STR_PAD_LEFT)
+                .strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+        }
 
         if ($idempotencyKey !== '') {
             $this->createdOrders[$idempotencyKey] = $code;

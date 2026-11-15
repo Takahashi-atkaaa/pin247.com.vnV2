@@ -3,23 +3,37 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    # ===================================================================
+    #  public/.htaccess — chỉ dùng khi DocumentRoot trỏ THẲNG vào `public/`
+    #  (không áp dụng cho bản deploy InfinityFree, nơi DocumentRoot = htdocs
+    #   và `.htaccess` ở gốc đã lo đủ).
+    #
+    #  LƯU Ý QUAN TRỌNG:
+    #  File này KHÔNG được chứa RewriteRule "front controller". Nếu có,
+    #  nó sẽ ghi đè `.htaccess` ở gốc khi deploy lên shared hosting và làm
+    #  hỏng việc rewrite `/build/...` và `/storage/...`.
+    #
+    #  Vì vậy ở đây CHỈ có rule chặn truy cập trực tiếp.
+    # ===================================================================
+
     RewriteEngine On
 
-    # Handle Authorization Header
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    # Chặn mọi file PHP trong public/ (ngoại trừ chính index.php cần cho
+    # front controller khi DocumentRoot = public/).
+    <FilesMatch "\.(php|phtml|php[0-9])$">
+        <Files "index.php">
+            Require all granted
+        </Files>
+        Require all denied
+    </FilesMatch>
 
-    # Handle X-XSRF-Token Header
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+    # Chặn file dot (ẩn).
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
-    # Send Requests To Front Controller...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
+# Không cho liệt kê thư mục.
+<IfModule mod_autoindex.c>
+    Options -Indexes
 </IfModule>

@@ -22,3 +22,15 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# --- Deploy bundle (sinh ra bởi scripts/build-deploy.sh) ---
+# CHỈ ignore artifact nhạy cảm / dung lượng lớn.
+# `deploy/deploy-import.php` + `deploy/deploy-extract.php` ĐƯỢC commit
+# (workflow GitHub Actions cần chúng để upload & chạy trên hosting).
+/deploy/staging/
+/deploy/pin247-deploy.zip
+/deploy/database/*.sql
+/deploy/.env.production.local
+/deploy/ftp-credentials.txt
+/deploy/deploy-import.token.txt
+/deploy/.deploy-token.tmp

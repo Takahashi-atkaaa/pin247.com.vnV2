@@ -5,38 +5,97 @@
 
     RewriteEngine On
 
-    # Handle Authorization Header
+    # ===================================================================
+    #  PIN247 — .htaccess gốc cho SHARED HOSTING (InfinityFree / cPanel)
+    #
+    #  InfinityFree khóa DocumentRoot = htdocs, nên `public/` KHÔNG thể là
+    #  webroot. Cách xử lý:
+    #    - `index.php` ở gốc là shim -> require public/index.php
+    #    - .htaccess này phục vụ asset tĩnh + chuyển mọi request còn lại về shim
+    #
+    #  Bản này dùng cho production (InfinityFree). Bản dev trên XAMPP chạy
+    #  DocumentRoot trỏ vào thư mục gốc dự án (mount tại /duanma) — vẫn chạy
+    #  đúng vì các RewriteRule dưới đây TƯƠNG ĐỐI so với thư mục chứa
+    #  .htaccess, không phụ thuộc tiền tố URL.
+    # ===================================================================
+
+    # --- Handle Authorization Header (Laravel Sanctum / Bearer token) ---
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Handle X-XSRF-Token Header
+    # --- Handle X-XSRF-Token Header ---
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # --- Static assets & uploads ---
+    # ===================================================================
+    #  1. CHẶN FILE NHẠY CẢM (đặt TRƯỚC mọi rule khác)
     #
-    # Khi chạy dưới XAMPP (DocumentRoot trỏ tới thư mục gốc dự án), các file
-    # tĩnh nằm trong `public/` cần được phục vụ tại đường dẫn gốc.
-    #
-    # /duanma/build/...   -> /duanma/public/build/...
-    # /duanma/storage/... -> /duanma/public/storage/...
-    #
-    # Lưu ý: .htaccess dùng per-directory context nên prefix thư mục đã bị
-    # Apache cắt bỏ -> pattern bắt đầu bằng `build/` chứ không phải `duanma/`.
+    #  File dot-files và file cấu hình không được phục vụ trực tiếp.
+    #  `Require all denied` cần Apache 2.4 (InfinityFree dùng 2.4).
+    # ===================================================================
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
 
+    <FilesMatch "^(composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml|.*\.md|.*\.sql|.*\.log|.*\.key|.*\.zip)$">
+        Require all denied
+    </FilesMatch>
+
+    # ===================================================================
+    #  2. ASSET TĨNH
+    #
+    #  /build/...   -> public/build/...       (asset Vite đã build)
+    #  /storage/... -> storage/app/public/... (file upload: ảnh SP, bảng giá)
+    #
+    #  Không dùng public/storage vì InfinityFree disable symlink()
+    #  (`php artisan storage:link` sẽ fail).
+    #
+    #  Điều kiện `!-f`: nếu file đã tồn tại thì Apache phục vụ trực tiếp,
+    #  tránh rewrite vòng lặp.
+    # ===================================================================
     RewriteCond %{REQUEST_URI} /build/
+    RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^build/(.*)$ public/build/$1 [L]
 
     RewriteCond %{REQUEST_URI} /storage/
-    RewriteRule ^storage/(.*)$ public/storage/$1 [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^storage/(.*)$ storage/app/public/$1 [L]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+    # ===================================================================
+    #  3. CHẶN THƯ MỤC KHÔNG ĐƯỢC PHỤC VỤ
+    #
+    #  RewriteRule (không phải RedirectMatch) vì pattern của RewriteRule
+    #  TƯƠNG ĐỐI so với thư mục chứa .htaccess => hoạt động giống nhau ở
+    #  domain gốc (InfinityFree) và trong thư mục con (XAMPP /duanma).
+    #
+    #  LƯU Ý: các rule này phải đặt SAU block 2, và PHẢI loại trừ
+    #  `public/build/` + `storage/app/public/` vì đó là đích của block 2.
+    # ===================================================================
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor|node_modules)(/|$) - [R=404,L]
 
-    # Send Requests To Front Controller...
+    # storage: chặn framework/logs/private + file export tạm.
+    # (storage/app/public là thư mục public — được phục vụ qua block 2)
+    RewriteRule ^storage/(framework|logs|app/private)(/|$) - [R=404,L]
+    RewriteRule ^storage/app/[^/]*\.csv$ - [R=404,L]
+
+    # public/: chặn truy cập trực tiếp, trừ public/build (đích của block 2).
+    RewriteRule ^public/(?!build/)(.*)$ - [R=404,L]
+    RewriteRule ^public$ - [R=404,L]
+
+    # ===================================================================
+    #  4. FRONT CONTROLLER
+    #
+    #  Mọi request không khớp file/thư mục thật -> index.php (shim ở gốc)
+    #  -> public/index.php (Laravel).
+    # ===================================================================
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
+</IfModule>
+
+# =====================================================================
+#  KHÔNG CHO PHÉP LIỆT KÊ THƯ MỤC
+# =====================================================================
+<IfModule mod_autoindex.c>
+   Options -Indexes
 </IfModule>

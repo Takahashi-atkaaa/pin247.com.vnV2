@@ -49,7 +49,19 @@ class CheckoutController extends Controller
         $order = $result['order'];
 
         // Đẩy đơn lên BigSeller bằng queue.
-        PushWebsiteOrderToBigSellerJob::dispatch($order->id);
+        //
+        // Với `QUEUE_CONNECTION=sync` (InfinityFree không có queue worker)
+        // job chạy INLINE ngay tại đây và cập nhật DB. Vì vậy:
+        //   1. Bọc try/catch để lỗi đồng bộ KHÔNG làm checkout 500
+        //      (đơn vẫn được tạo, admin sẽ retry thủ công từ trang quản trị).
+        //   2. `refresh()` lại model để response trả về mã BigSeller mới nhất.
+        try {
+            PushWebsiteOrderToBigSellerJob::dispatch($order->id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $order->refresh();
 
         return response()->json([
             'message' => 'Đặt hàng thành công.',

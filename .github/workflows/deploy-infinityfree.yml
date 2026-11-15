@@ -1,0 +1,451 @@
+# =============================================================================
+#  PIN247 — deploy tự động lên InfinityFree qua GitHub Actions
+#
+#  CÁCH HOẠT ĐỘNG:
+#    push vào `main` (hoặc chạy tay) →
+#      1. Build frontend (npm ci && npm run build)
+#      2. Tạo database trong MySQL service của CI → artisan migrate --seed
+#      3. Dump database đó ra file SQL
+#      4. Đóng gói code thành 1 file zip phẳng
+#      5. Sinh .env production từ secrets
+#      6. Upload .htaccess + zip + .env + SQL + script giải nén/import qua FTP
+#      7. Gọi script giải nén + import DB trên hosting qua HTTP
+#      8. Chạy smoke test + E2E test trên domain thật
+#
+#  SECRETS CẦN CÀI ĐẶT (Settings → Secrets and variables → Actions):
+#    FTP_HOST        vd: ftpupload.net
+#    FTP_USER        vd: if0_41917067
+#    FTP_PASS        vd: (mật khẩu FTP)
+#    FTP_DIR         vd: /tunganhahihi.io.vn/htdocs
+#    DEPLOY_TOKEN    vd: token ngẫu nhiên >= 32 ký tự
+#    APP_KEY         vd: base64:... (PHẢI khớp với APP_KEY đang dùng)
+#    APP_URL         vd: https://tunganhahihi.io.vn
+#    DB_HOST         vd: sql210.infinityfree.com
+#    DB_DATABASE     vd: if0_41917067_pin247
+#    DB_USERNAME     vd: if0_41917067
+#    DB_PASSWORD     vd: (mật khẩu MySQL)
+# =============================================================================
+
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_db_import:
+        description: 'Bỏ qua import database (chỉ deploy code)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-infinityfree
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    # --- MySQL service của CI: dùng để tạo schema + dữ liệu mẫu ---
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pin247_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # --- DB dùng để build schema trong CI ---
+      CI_DB_HOST: 127.0.0.1
+      CI_DB_PORT: 3306
+      CI_DB_DATABASE: pin247_ci
+      CI_DB_USERNAME: root
+      CI_DB_PASSWORD: root
+
+    steps:
+      # -------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, pdo_mysql, fileinfo, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # -------------------------------------------------------------------
+      # Build frontend
+      # -------------------------------------------------------------------
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_APP_NAME: PIN247
+
+      - name: Verify Vite manifest
+        run: |
+          test -f public/build/manifest.json || (echo "❌ Thiếu public/build/manifest.json"; exit 1)
+          echo "✅ manifest.json OK ($(stat -c%s public/build/manifest.json) bytes)"
+
+      # -------------------------------------------------------------------
+      # PHP dependencies
+      # -------------------------------------------------------------------
+      - name: Install PHP dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts
+
+      # -------------------------------------------------------------------
+      # Tạo schema + dữ liệu mẫu trong MySQL của CI, rồi dump ra SQL
+      # -------------------------------------------------------------------
+      - name: Build database (migrate + seed)
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_ENV: production
+          APP_DEBUG: 'false'
+          DB_HOST: ${{ env.CI_DB_HOST }}
+          DB_PORT: ${{ env.CI_DB_PORT }}
+          DB_DATABASE: ${{ env.CI_DB_DATABASE }}
+          DB_USERNAME: ${{ env.CI_DB_USERNAME }}
+          DB_PASSWORD: ${{ env.CI_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # `.env` tạm cho artisan (không commit).
+          cat > .env <<EOF
+          APP_NAME=PIN247
+          APP_ENV=production
+          APP_DEBUG=false
+          APP_KEY=$APP_KEY
+          APP_URL=${{ secrets.APP_URL }}
+          DB_CONNECTION=mysql
+          DB_HOST=$DB_HOST
+          DB_PORT=$DB_PORT
+          DB_DATABASE=$DB_DATABASE
+          DB_USERNAME=$DB_USERNAME
+          DB_PASSWORD=$DB_PASSWORD
+          CACHE_STORE=file
+          SESSION_DRIVER=file
+          QUEUE_CONNECTION=sync
+          BIGSELLER_MODE=mock
+          EOF
+
+          # Chờ MySQL sẵn sàng.
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USERNAME" -p"$DB_PASSWORD" --silent 2>/dev/null; then
+              echo "✅ MySQL sẵn sàng"; break
+            fi
+            sleep 2
+          done
+
+          php artisan migrate --force --no-interaction
+          php artisan db:seed --force --no-interaction --class=DatabaseSeeder
+          # Khách demo cho E2E test.
+          php artisan db:seed --force --no-interaction --class=DemoCustomerSeeder
+
+          # Dump ra SQL.
+          mkdir -p deploy/database
+          mysqldump -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USERNAME" -p"$DB_PASSWORD" \
+            --default-character-set=utf8mb4 --single-transaction --skip-lock-tables \
+            --no-tablespaces --routines --triggers --add-drop-table --complete-insert \
+            "$DB_DATABASE" > deploy/database/pin247.sql
+
+          echo "📦 SQL dump: $(du -h deploy/database/pin247.sql | cut -f1), $(grep -c '^CREATE TABLE' deploy/database/pin247.sql) bảng"
+
+          # Dọn .env tạm.
+          rm -f .env
+
+      # -------------------------------------------------------------------
+      # Đóng gói (phẳng — giải nén ra đúng gốc htdocs)
+      # -------------------------------------------------------------------
+      - name: Build deploy bundle
+        run: |
+          set -euo pipefail
+          STAGING="deploy/staging"
+          rm -rf "$STAGING" deploy/pin247-deploy.zip
+          mkdir -p "$STAGING"
+
+          for d in app bootstrap config database routes public; do
+            rsync -a --exclude='.DS_Store' "$d/" "$STAGING/$d/"
+          done
+
+          mkdir -p "$STAGING/resources"
+          rsync -a resources/views/ "$STAGING/resources/views/"
+
+          for f in artisan composer.json composer.lock index.php .htaccess; do
+            [ -f "$f" ] && cp "$f" "$STAGING/$f"
+          done
+
+          rm -f "$STAGING/database/database.sqlite"
+          [ -f "$STAGING/config/view.php" ] || cp vendor/laravel/framework/config/view.php "$STAGING/config/view.php"
+
+          # Storage skeleton
+          mkdir -p "$STAGING/storage/app/public" "$STAGING/storage/app/private" \
+                   "$STAGING/storage/framework/cache/data" "$STAGING/storage/framework/sessions" \
+                   "$STAGING/storage/framework/testing" "$STAGING/storage/framework/views" \
+                   "$STAGING/storage/logs" "$STAGING/bootstrap/cache"
+          touch "$STAGING/bootstrap/cache/.gitignore"
+
+          # File bảng giá mẫu đã upload (nếu có trong repo)
+          if [ -d storage/app/public ]; then
+            rsync -a --exclude='.gitignore' --exclude='*.csv' \
+              storage/app/public/ "$STAGING/storage/app/public/" || true
+          fi
+
+          # Vendor (đã cài --no-dev ở step trên)
+          rsync -a vendor/ "$STAGING/vendor/"
+
+          # Dọn
+          rm -f "$STAGING/public/storage"
+          find "$STAGING" -name '.DS_Store' -delete || true
+          find "$STAGING/storage/framework" -type f ! -name '.gitignore' -delete || true
+          find "$STAGING/storage/logs" -type f ! -name '.gitignore' -delete || true
+          rm -f "$STAGING/.env"
+
+          # Zip phẳng
+          (cd "$STAGING" && zip -rq ../pin247-deploy.zip . -x '*.DS_Store')
+          echo "📦 Bundle: $(du -h deploy/pin247-deploy.zip | cut -f1)"
+
+      # -------------------------------------------------------------------
+      # Sinh .env production từ secrets
+      # -------------------------------------------------------------------
+      - name: Generate production .env
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, pathlib
+
+          template = pathlib.Path('.env.production.example').read_text(encoding='utf-8')
+          values = {
+              'APP_KEY': os.environ['APP_KEY'],
+              'APP_URL': os.environ['APP_URL'],
+              'DB_HOST': os.environ['DB_HOST'],
+              'DB_DATABASE': os.environ['DB_DATABASE'],
+              'DB_USERNAME': os.environ['DB_USERNAME'],
+              'DB_PASSWORD': os.environ['DB_PASSWORD'],
+          }
+
+          out = []
+          for line in template.splitlines():
+              m = re.match(r'^([A-Z0-9_]+)=', line)
+              if m and m.group(1) in values:
+                  key = m.group(1)
+                  out.append(f'{key}={values[key]}')
+              else:
+                  out.append(line)
+
+          pathlib.Path('deploy').mkdir(exist_ok=True)
+          pathlib.Path('deploy/.env.production.local').write_text('\n'.join(out) + '\n', encoding='utf-8')
+          print('✅ deploy/.env.production.local đã tạo')
+          PY
+
+      # -------------------------------------------------------------------
+      # Upload qua FTP
+      # -------------------------------------------------------------------
+      - name: Upload to InfinityFree via FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_DIR: ${{ secrets.FTP_DIR }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ftplib
+          import os
+          from pathlib import Path
+
+          host = os.environ['FTP_HOST']
+          user = os.environ['FTP_USER']
+          password = os.environ['FTP_PASS']
+          remote_dir = os.environ['FTP_DIR'].rstrip('/')
+          token = os.environ['DEPLOY_TOKEN']
+
+          ftp = ftplib.FTP()
+          ftp.connect(host, 21, timeout=180)
+          ftp.login(user, password)
+          ftp.set_pasv(True)
+          ftp.cwd(remote_dir)
+          print(f'✅ Đã đăng nhập FTP: {user}@{host}{remote_dir}')
+
+          def put(local: Path, remote: str) -> None:
+              size = local.stat().st_size
+              print(f'  ⬆️  {remote}  ({size/1024/1024:.2f} MB)')
+              with open(local, 'rb') as fh:
+                  ftp.storbinary(f'STOR {remote_dir}/{remote}', fh, blocksize=1024*1024)
+
+          def rename(old: str, new: str) -> None:
+              print(f'  🔄 {old} -> {new}')
+              ftp.rename(f'{remote_dir}/{old}', f'{remote_dir}/{new}')
+
+          def rmd(remote: str) -> None:
+              try:
+                  ftp.delete(f'{remote_dir}/{remote}')
+                  print(f'  🗑️  xoá {remote}')
+              except Exception:
+                  pass
+
+          # 1. .htaccess TRƯỚC .env (an toàn)
+          put(Path('.htaccess'), 'htaccess')
+          rename('htaccess', '.htaccess')
+
+          # 2. Gói zip
+          put(Path('deploy/pin247-deploy.zip'), 'pin247-deploy.zip')
+
+          # 3. Script giải nén + script import + token
+          put(Path('deploy/deploy-extract.php'), 'deploy-extract.php')
+          put(Path('deploy/deploy-import.php'), 'deploy-import.php')
+
+          tmp_token = Path('deploy/.deploy-token.tmp')
+          tmp_token.write_text(token, encoding='utf-8')
+          put(tmp_token, 'deploy-import.token.txt')
+          tmp_token.unlink()
+
+          # 4. SQL dump
+          put(Path('deploy/database/pin247.sql'), 'pin247.sql')
+
+          # 5. .env (tên tạm -> RNTO)
+          put(Path('deploy/.env.production.local'), 'env.setup')
+          rename('env.setup', '.env')
+
+          ftp.quit()
+          print('✅ Upload xong')
+          PY
+
+      # -------------------------------------------------------------------
+      # Giải nén + import DB + set quyền ghi
+      # -------------------------------------------------------------------
+      - name: Extract & import database
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          SKIP_DB_IMPORT: ${{ inputs.skip_db_import }}
+        run: |
+          set -euo pipefail
+          BASE="${APP_URL%/}"
+
+          echo "🔓 Giải nén gói deploy..."
+          curl -fsSL "$BASE/deploy-extract.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/extract.html || true
+          sed 's/<[^>]*>/ /g' /tmp/extract.html | tr -s ' ' | grep -E '(Đã giải nén|✗)' | head -20 || true
+
+          if grep -q 'Đã giải nén xong' /tmp/extract.html; then
+            echo "✅ Giải nén thành công"
+          else
+            echo "❌ Giải nén thất bại — chi tiết:"
+            sed 's/<[^>]*>/ /g' /tmp/extract.html | tr -s ' ' | grep -vE '^\s*$' | head -40
+            exit 1
+          fi
+
+          if [ "${SKIP_DB_IMPORT:-false}" != "true" ]; then
+            echo ""
+            echo "🗄️  Import database..."
+            curl -fsSL "$BASE/deploy-import.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/import.html || true
+            sed 's/<[^>]*>/ /g' /tmp/import.html | tr -s ' ' | grep -E '(Đã chạy|Số bảng|dòng|lỗi)' | head -20 || true
+
+            if grep -q 'Số bảng sau import' /tmp/import.html; then
+              echo "✅ Import database xong"
+            else
+              echo "⚠️  Import có vấn đề — chi tiết:"
+              sed 's/<[^>]*>/ /g' /tmp/import.html | tr -s ' ' | grep -vE '^\s*$' | head -40
+            fi
+          else
+            echo "⏭️  Bỏ qua import database"
+          fi
+
+      # -------------------------------------------------------------------
+      # Test trên hosting thật
+      # -------------------------------------------------------------------
+      - name: Smoke test
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: bash scripts/smoke-test.sh "${APP_URL%/}"
+
+      - name: E2E test
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: bash scripts/e2e-test.sh "${APP_URL%/}"
+
+      # -------------------------------------------------------------------
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf deploy/staging deploy/pin247-deploy.zip \
+                 deploy/.env.production.local deploy/database/pin247.sql \
+                 deploy/.deploy-token.tmp .env
+          echo "🧹 Đã dọn artifact"
+
+  # ==========================================================================
+  # Job kiểm tra secrets — báo rõ ràng nếu thiếu.
+  # ==========================================================================
+  check-secrets:
+    name: Check required secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify secrets are configured
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_DIR: ${{ secrets.FTP_DIR }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DATABASE: ${{ secrets.DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          missing=0
+          for pair in \
+            "FTP_HOST:$FTP_HOST" \
+            "FTP_USER:$FTP_USER" \
+            "FTP_PASS:$FTP_PASS" \
+            "FTP_DIR:$FTP_DIR" \
+            "DEPLOY_TOKEN:$DEPLOY_TOKEN" \
+            "APP_KEY:$APP_KEY" \
+            "APP_URL:$APP_URL" \
+            "DB_HOST:$DB_HOST" \
+            "DB_DATABASE:$DB_DATABASE" \
+            "DB_USERNAME:$DB_USERNAME" \
+            "DB_PASSWORD:$DB_PASSWORD"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            if [ -z "$value" ]; then
+              echo "❌ Thiếu secret: $name"
+              missing=1
+            else
+              echo "✅ $name"
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Thêm secrets tại:"
+            echo "  https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
