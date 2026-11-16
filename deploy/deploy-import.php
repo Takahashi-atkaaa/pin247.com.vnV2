@@ -21,6 +21,12 @@
  * =============================================================================
  */
 
+// Bật hiển thị lỗi để debug được trên shared hosting (InfinityFree tắt
+// display_errors mặc định => fatal error chỉ hiện trang trắng 500).
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
 // ---------------------------------------------------------------------------
 // Cấu hình — đọc từ file .env cạnh bên (không cần sửa code)
 // ---------------------------------------------------------------------------
@@ -218,6 +224,41 @@ if ($available === []) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Fallback #2: thử kết nối thẳng tới DB trong .env.
+//
+// LƯU Ý — InfinityFree cập nhật grant DB **động**: ngay sau khi tạo DB mới
+// trong Control Panel, `SHOW GRANTS` vẫn trả về `GRANT USAGE ON *.*` (chưa
+// cập nhật), nên bước dò bằng grant sẽ fail dù DB đã tồn tại thật.
+// Cách đúng: thử connect thẳng vào `DB_DATABASE` — nếu được thì DB tồn tại.
+//
+// Đây cũng là lý do script phải ưu tiên tên trong .env thay vì "database đầu
+// tiên trong danh sách".
+// ---------------------------------------------------------------------------
+if ($available === [] || ! in_array($config['db_name'], $available, true)) {
+    $envName = $config['db_name'];
+
+    if ($envName !== '') {
+        try {
+            $probe = new PDO(
+                sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $config['db_host'], $config['db_port'], $envName),
+                $config['db_user'],
+                $config['db_pass'],
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+
+            $probeTables = $probe->query(
+                'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '.$probe->quote($envName)
+            )->fetchColumn();
+
+            $available = [$envName];
+            out('Kết nối thẳng DB trong .env thành công: '.$envName.' ('.$probeTables.' bảng).', 'ok');
+        } catch (Throwable $e) {
+            out('Không kết nối được DB trong .env ('.$envName.'): '.$e->getMessage(), 'warn');
+        }
+    }
+}
+
 if ($available === []) {
     out('Không xác định được database nào.', 'error');
     out('→ Mở Control Panel InfinityFree → MySQL Databases → Create MySQL Database,', 'warn');
@@ -305,7 +346,17 @@ $errors = [];
 
 $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 $pdo->exec('SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO"');
-$pdo->exec('SET CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+
+// LƯU Ý: InfinityFree chạy MariaDB, không phải MySQL 8.0.
+// `SET CHARACTER SET x COLLATE y` là cú pháp KHÔNG hợp lệ (báo lỗi 1064) —
+// phải dùng `SET NAMES`.
+// Các lệnh SET này chỉ là tối ưu, không bắt buộc => bọc try/catch để lỗi
+// không làm sập cả quá trình import.
+try {
+    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+} catch (Throwable $e) {
+    out('Bỏ qua SET NAMES: '.$e->getMessage(), 'warn');
+}
 
 foreach ($statements as $statement) {
     $statement = trim($statement);
