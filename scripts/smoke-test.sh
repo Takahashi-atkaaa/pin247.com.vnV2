@@ -41,11 +41,34 @@ PASS=0
 FAIL=0
 FAILED_TESTS=()
 
+# InfinityFree không trả 403/404 trực tiếp mà redirect (302) tới
+# https://errors.infinityfree.net/errors/403/ hoặc .../404/.
+# Vì vậy ta phải "giải" mã lỗi thật từ Location header.
+#
+#   check <label> <expected> <url>
+#     expected = 403 | 404 | 401 | 200 | ...
+resolve_code() {
+    local url="$1"
+    local raw hdr
+
+    raw=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "$url")
+    [ "$raw" != "302" ] && { printf '%s' "$raw"; return; }
+
+    hdr=$(curl "${CURL_OPTS[@]}" -o /dev/null -D- "$url" 2>/dev/null \
+        | grep -i '^location:' | tail -1 | tr -d '\r')
+
+    case "$hdr" in
+        */errors/403*) printf '403' ;;
+        */errors/404*) printf '404' ;;
+        *)              printf '%s' "$raw" ;;
+    esac
+}
+
 check() {
     local label="$1" expected="$2" url="$3"
 
     local code
-    code=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "$url")
+    code=$(resolve_code "$url")
 
     if [ "$code" = "$expected" ]; then
         echo -e "  \033[0;32m✓\033[0m $label ($code)"
@@ -54,6 +77,25 @@ check() {
         echo -e "  \033[0;31m✗\033[0m $label — expected $expected, got $code"
         FAIL=$((FAIL + 1))
         FAILED_TESTS+=("$label ($url) expected=$expected got=$code")
+    fi
+}
+
+# InfinityFree "drop" connection (empty reply => curl code 000) với một số file
+# cấm hợp lệ như .env. Điều đó CŨNG là hành vi chặn đúng — nội dung file
+# không bao giờ được trả ra ngoài.
+check_blocked() {
+    local label="$1" url="$2"
+
+    local code
+    code=$(resolve_code "$url")
+
+    if [ "$code" = "403" ] || [ "$code" = "404" ] || [ "$code" = "000" ]; then
+        echo -e "  \033[0;32m✓\033[0m $label (bị chặn: $code)"
+        PASS=$((PASS + 1))
+    else
+        echo -e "  \033[0;31m✗\033[0m $label — bị lộ (HTTP $code)"
+        FAIL=$((FAIL + 1))
+        FAILED_TESTS+=("$label ($url) bị lộ, HTTP $code")
     fi
 }
 
@@ -111,7 +153,7 @@ fi
 
 echo ""
 echo "[ Bảo mật — phải bị chặn ]"
-check "Chặn /.env"                 403 "$BASE/.env"
+check_blocked "Chặn /.env"                "$BASE/.env"
 check "Chặn /.gitignore"           403 "$BASE/.gitignore"
 check "Chặn /composer.json"        403 "$BASE/composer.json"
 check "Chặn /artisan"              403 "$BASE/artisan"
