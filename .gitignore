@@ -34,3 +34,6 @@ Thumbs.db
 /deploy/ftp-credentials.txt
 /deploy/deploy-import.token.txt
 /deploy/.deploy-token.tmp
+
+# Dump database local (dung lượng lớn, KHÔNG commit)
+/pin247_shop.sql

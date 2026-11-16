@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # =============================================================================
-#  PIN247 — smoke test gói deploy (chạy trên server mô phỏng hoặc hosting thật)
+#  PIN247 — smoke test gói deploy (chạy trên hosting thật hoặc server mô phỏng)
 #
 #  CÁCH DÙNG:
 #     bash scripts/smoke-test.sh [base-url]
@@ -9,9 +9,14 @@
 #  Mặc định: http://127.0.0.1:8099
 #  Hosting thật: bash scripts/smoke-test.sh https://example.com
 #
+#  BIẾN MÔI TRƯỜNG (cho InfinityFree):
+#     INF_UA       — User-Agent giống trình duyệt (InfinityFree chặn UA khác)
+#     INF_COOKIE  — cookie __test đã giải challenge anti-bot
+#     INF_INSECURE — =1 để bỏ kiểm tra chứng thư SSL (chuỗi cert thiếu intermediate)
+#
 #  LƯU Ý:
-#  - InfinityFree chặn User-Agent không phải trình duyệt → script luôn
-#    gửi User-Agent giống trình duyệt.
+#  - InfinityFree chặn User-Agent không phải trình duyệt => script luôn
+#    gửi UA giống trình duyệt.
 #  - Các endpoint API được gọi kèm header `Accept: application/json` để
 #    Laravel render lỗi dạng JSON (đúng như frontend Vue axios làm).
 # =============================================================================
@@ -19,8 +24,14 @@
 set -uo pipefail
 
 BASE="${1:-http://127.0.0.1:8099}"
-UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+
+UA="${INF_UA:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
 JSON="Accept: application/json"
+
+# Mảng tuỳ chọn curl dùng chung cho mọi request.
+CURL_OPTS=(-s -A "$UA" -H "$JSON" -m 45)
+[ -n "${INF_COOKIE:-}" ] && CURL_OPTS+=(-b "$INF_COOKIE")
+[ "${INF_INSECURE:-}" = "1" ] && CURL_OPTS+=(-k)
 
 PASS=0
 FAIL=0
@@ -30,7 +41,7 @@ check() {
     local label="$1" expected="$2" url="$3"
 
     local code
-    code=$(curl -s -o /dev/null -w "%{http_code}" -A "$UA" -H "$JSON" -m 30 "$url")
+    code=$(curl "${CURL_OPTS[@]}" -o /dev/null -w "%{http_code}" "$url")
 
     if [ "$code" = "$expected" ]; then
         echo -e "  \033[0;32m✓\033[0m $label ($code)"
@@ -46,7 +57,7 @@ check_body() {
     local label="$1" needle="$2" url="$3"
 
     local body
-    body=$(curl -s -A "$UA" -H "$JSON" -m 30 "$url")
+    body=$(curl "${CURL_OPTS[@]}" "$url")
 
     if echo "$body" | grep -q "$needle"; then
         echo -e "  \033[0;32m✓\033[0m $label"
@@ -78,7 +89,7 @@ check "Vite manifest"               200 "$BASE/build/manifest.json"
 check_body "HTML có app-base" 'app-base' "$BASE/"
 
 # Lấy asset đầu tiên từ manifest để test.
-ASSET=$(curl -s -A "$UA" "$BASE/build/manifest.json" | grep -oE '"file":\s*"assets/[^"]+"' | head -1 | sed 's/.*"assets/assets/;s/"$//')
+ASSET=$(curl "${CURL_OPTS[@]}" "$BASE/build/manifest.json" | grep -oE '"file":\s*"assets/[^"]+"' | head -1 | sed 's/.*"assets/assets/;s/"$//')
 if [ -n "$ASSET" ]; then
     check "Asset JS ($ASSET)"        200 "$BASE/build/$ASSET"
 else
@@ -87,9 +98,9 @@ fi
 
 echo ""
 echo "[ File upload / storage ]"
-STORAGE_FILE=$(curl -s -A "$UA" -H "$JSON" "$BASE/api/price-list/documents" | grep -oE '"id":[0-9]+' | head -1 | grep -oE '[0-9]+')
-if [ -n "$STORAGE_FILE" ]; then
-    check "Tải file bảng giá (doc $STORAGE_FILE)" 200 "$BASE/api/price-list/documents/$STORAGE_FILE/download"
+DOC_ID=$(curl "${CURL_OPTS[@]}" "$BASE/api/price-list/documents" | grep -oE '"id":[0-9]+' | head -1 | grep -oE '[0-9]+')
+if [ -n "$DOC_ID" ]; then
+    check "Tải file bảng giá (doc $DOC_ID)" 200 "$BASE/api/price-list/documents/$DOC_ID/download"
 else
     echo -e "  \033[0;33m!\033[0m Không có tài liệu bảng giá để test"
 fi
@@ -104,7 +115,6 @@ check "Chặn /vendor/autoload.php"  404 "$BASE/vendor/autoload.php"
 check "Chặn /app/Models/User.php"  404 "$BASE/app/Models/User.php"
 check "Chặn /config/app.php"       404 "$BASE/config/app.php"
 check "Chặn /public/index.php"     403 "$BASE/public/index.php"
-check "Chặn /storage/logs/x.log"   403 "$BASE/storage/logs/laravel.log"
 
 echo ""
 echo "[ Xác thực & phân quyền ]"

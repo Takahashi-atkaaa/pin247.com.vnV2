@@ -20,12 +20,17 @@
 set -uo pipefail
 
 BASE="${1:-http://127.0.0.1:8099}"
-UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+UA="${INF_UA:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
 
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@pin247.vn}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin1234}"
 CUSTOMER_EMAIL="${CUSTOMER_EMAIL:-khachdemo@example.com}"
 CUSTOMER_PASSWORD="${CUSTOMER_PASSWORD:-secret1234}"
+
+# Tùy chọn cho InfinityFree: cookie anti-bot + bỏ kiểm tra SSL.
+CURL_GLOBAL=(-s -A "$UA" -H "Accept: application/json")
+[ -n "${INF_COOKIE:-}" ] && CURL_GLOBAL+=(-b "$INF_COOKIE")
+[ "${INF_INSECURE:-}" = "1" ] && CURL_GLOBAL+=(-k)
 
 PASS=0
 FAIL=0
@@ -41,7 +46,7 @@ fail() {
 # api <method> <path> [token] [json-body]
 api() {
     local method="$1" path="$2" token="${3:-}" body="${4:-}"
-    local args=(-s -X "$method" -A "$UA" -H "Accept: application/json")
+    local args=("${CURL_GLOBAL[@]}" -X "$method")
 
     [ -n "$token" ] && args+=(-H "Authorization: Bearer $token")
     [ -n "$body" ] && args+=(-H "Content-Type: application/json" -d "$body")
@@ -51,7 +56,7 @@ api() {
 
 api_code() {
     local method="$1" path="$2" token="${3:-}" body="${4:-}"
-    local args=(-s -o /dev/null -w "%{http_code}" -X "$method" -A "$UA" -H "Accept: application/json")
+    local args=("${CURL_GLOBAL[@]}" -o /dev/null -w "%{http_code}" -X "$method")
 
     [ -n "$token" ] && args+=(-H "Authorization: Bearer $token")
     [ -n "$body" ] && args+=(-H "Content-Type: application/json" -d "$body")

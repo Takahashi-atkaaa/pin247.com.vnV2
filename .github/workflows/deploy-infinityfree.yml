@@ -339,7 +339,30 @@ jobs:
 
       # -------------------------------------------------------------------
       # Giải nén + import DB + set quyền ghi
+      #
+      # LƯU Ý QUAN TRỌNG — InfinityFree có 2 hàng rào:
+      #   1. Chứng thư SSL thiếu intermediate => curl fail với
+      #      "unable to get local issuer certificate" => dùng -k.
+      #   2. JS anti-bot challenge (cookie `__test`) cho mọi request thiếu
+      #      cookie => dùng scripts/infinityfree-challenge.js để giải.
+      #   3. Chặn User-Agent không phải trình duyệt => dùng UA trình duyệt.
       # -------------------------------------------------------------------
+      - name: Giải challenge anti-bot InfinityFree
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          set -euo pipefail
+          BASE="${APP_URL%/}"
+
+          COOKIE=$(node scripts/infinityfree-challenge.js "$BASE/")
+          if [ -z "$COOKIE" ]; then
+            echo "ℹ️  Không có challenge (server đã cho qua)."
+            echo "$COOKIE" > /tmp/inf-cookie.txt
+          else
+            echo "✅ Đã giải challenge anti-bot: ${COOKIE:0:24}…"
+            echo "$COOKIE" > /tmp/inf-cookie.txt
+          fi
+
       - name: Extract & import database
         env:
           APP_URL: ${{ secrets.APP_URL }}
@@ -348,9 +371,15 @@ jobs:
         run: |
           set -euo pipefail
           BASE="${APP_URL%/}"
+          COOKIE=$(cat /tmp/inf-cookie.txt)
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+          fetch() {
+            curl -sk -m 120 -A "$UA" ${COOKIE:+-b "$COOKIE"} "$1"
+          }
 
           echo "🔓 Giải nén gói deploy..."
-          curl -fsSL "$BASE/deploy-extract.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/extract.html || true
+          fetch "$BASE/deploy-extract.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/extract.html || true
           sed 's/<[^>]*>/ /g' /tmp/extract.html | tr -s ' ' | grep -E '(Đã giải nén|✗)' | head -20 || true
 
           if grep -q 'Đã giải nén xong' /tmp/extract.html; then
@@ -364,8 +393,8 @@ jobs:
           if [ "${SKIP_DB_IMPORT:-false}" != "true" ]; then
             echo ""
             echo "🗄️  Import database..."
-            curl -fsSL "$BASE/deploy-import.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/import.html || true
-            sed 's/<[^>]*>/ /g' /tmp/import.html | tr -s ' ' | grep -E '(Đã chạy|Số bảng|dòng|lỗi)' | head -20 || true
+            fetch "$BASE/deploy-import.php?token=$DEPLOY_TOKEN&confirm=yes" > /tmp/import.html || true
+            sed 's/<[^>]*>/ /g' /tmp/import.html | tr -s ' ' | grep -E '(Đã chạy|Số bảng|dòng|lỗi|GRANT|Database)' | head -20 || true
 
             if grep -q 'Số bảng sau import' /tmp/import.html; then
               echo "✅ Import database xong"
@@ -383,12 +412,20 @@ jobs:
       - name: Smoke test
         env:
           APP_URL: ${{ secrets.APP_URL }}
-        run: bash scripts/smoke-test.sh "${APP_URL%/}"
+        run: |
+          set -uo pipefail
+          export INF_COOKIE=$(cat /tmp/inf-cookie.txt)
+          export INF_INSECURE=1
+          bash scripts/smoke-test.sh "${APP_URL%/}"
 
       - name: E2E test
         env:
           APP_URL: ${{ secrets.APP_URL }}
-        run: bash scripts/e2e-test.sh "${APP_URL%/}"
+        run: |
+          set -uo pipefail
+          export INF_COOKIE=$(cat /tmp/inf-cookie.txt)
+          export INF_INSECURE=1
+          bash scripts/e2e-test.sh "${APP_URL%/}"
 
       # -------------------------------------------------------------------
       - name: Cleanup

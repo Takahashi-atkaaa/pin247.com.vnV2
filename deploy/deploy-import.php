@@ -35,18 +35,33 @@ $config = [
 ];
 
 // Đọc .env nếu có.
+//
+// LƯU Ý: tên biến trong .env là CHỮ HOA (DB_HOST, DB_DATABASE, ...), còn
+// khóa trong $config là chữ thường (db_host, db_name, ...). Phải ánh xạ
+// tường minh, nếu không sẽ không đọc được gì => "Thiếu cấu hình".
+$envMap = [
+    'DB_HOST'     => 'db_host',
+    'DB_PORT'     => 'db_port',
+    'DB_DATABASE' => 'db_name',
+    'DB_USERNAME' => 'db_user',
+    'DB_PASSWORD' => 'db_pass',
+];
+
 $envFile = __DIR__.'/.env';
 if (is_file($envFile)) {
     foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
         $line = trim($line);
+
         if ($line === '' || str_starts_with($line, '#') || ! str_contains($line, '=')) {
             continue;
         }
+
         [$key, $value] = explode('=', $line, 2);
         $key = trim($key);
         $value = trim($value, " \t\n\r\0\x0B\"'");
-        if (isset($config[$key]) && $config[$key] === '') {
-            $config[$key] = $value;
+
+        if (isset($envMap[$key]) && $config[$envMap[$key]] === '') {
+            $config[$envMap[$key]] = $value;
         }
     }
 }
@@ -129,7 +144,95 @@ out('File SQL: '.basename($config['sql_file']).' — '.round($sqlSize / 1024 / 1
 
 // ---------------------------------------------------------------------------
 // 3. Kết nối DB
+//
+// LƯU Ý QUAN TRỌNG — tự dò database:
+//   InfinityFree cấp cho mỗi tài khoản một (hoặc vài) database có tên dạng
+//   `if0_41917067_<tên>`. Tên chính xác phải xem trong Control Panel.
+//   Nếu DB_DATABASE trong .env sai => lỗi 1044 "Access denied ... to database".
+//
+//   => Script tự liệt kê các database user được phép, dùng database đầu tiên
+//      nếu tên trong .env không tồn tại. Nhờ vậy deploy vẫn chạy được dù
+//      config DB_DATABASE bị sai.
 // ---------------------------------------------------------------------------
+$pdo = null;
+$chosenDb = $config['db_name'];
+$available = [];
+
+try {
+    // Kết nối KHÔNG chỉ định database để xem được danh sách.
+    $rootPdo = new PDO(
+        sprintf('mysql:host=%s;port=%s;charset=utf8mb4', $config['db_host'], $config['db_port']),
+        $config['db_user'],
+        $config['db_pass'],
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]
+    );
+    out('✔ Kết nối MySQL thành công (không chỉ định database).', 'ok');
+} catch (Throwable $e) {
+    out('Lỗi kết nối MySQL: '.$e->getMessage(), 'error');
+    exit;
+}
+
+// --- Tìm database khả dụng ---
+//
+// InfinityFree KHÔNG cấp quyền `SHOW DATABASES` (lỗi 1227). Cách duy nhất
+// là đọc `SHOW GRANTS` — grant của InfinityFree có dạng:
+//     GRANT ALL PRIVILEGES ON `if0_41917067_<tên>`.* TO `if0_41917067`@`%`
+// => tên database nằm ngay trong grant.
+$available = [];
+
+try {
+    $grants = $rootPdo->query('SHOW GRANTS FOR CURRENT_USER')->fetchAll(PDO::FETCH_COLUMN);
+
+    foreach ($grants as $grant) {
+        // Dạng grant của InfinityFree:
+        //   GRANT ALL PRIVILEGES ON `if0_41917067_<tên>`.* TO `if0_41917067`@`%`
+        if (preg_match('/ON\s+`([^`]+)`\.\*/i', $grant, $m)) {
+            $available[] = $m[1];
+        }
+    }
+
+    out('SHOW GRANTS: '.count($grants).' dòng.', 'info');
+
+    foreach ($grants as $grant) {
+        out('  GRANT: '.$grant, 'info');
+    }
+
+    if ($available !== []) {
+        out('Database được cấp quyền: '.implode(', ', $available), 'ok');
+    }
+} catch (Throwable $e) {
+    out('SHOW GRANTS bị từ chối: '.$e->getMessage(), 'warn');
+}
+
+// Fallback: thử `SHOW DATABASES`.
+if ($available === []) {
+    try {
+        $available = $rootPdo->query('SHOW DATABASES')->fetchAll(PDO::FETCH_COLUMN);
+        out('Database khả dụng (SHOW DATABASES): '.(implode(', ', $available) ?: '(không có)'), 'info');
+    } catch (Throwable $e) {
+        out('SHOW DATABASES bị từ chối: '.$e->getMessage(), 'warn');
+    }
+}
+
+if ($available === []) {
+    out('Không xác định được database nào.', 'error');
+    out('→ Mở Control Panel InfinityFree → MySQL Databases → Create MySQL Database,', 'warn');
+    out('  rồi dùng đúng tên đó cho DB_DATABASE.', 'warn');
+    exit;
+}
+
+// Chọn database: ưu tiên tên trong .env nếu tồn tại, không thì lấy cái đầu tiên.
+if (! in_array($chosenDb, $available, true)) {
+    $chosenDb = $available[0];
+    out('DB_DATABASE trong .env không tồn tại — tự động dùng: '.$chosenDb, 'warn');
+}
+
+$config['db_name'] = $chosenDb;
+
 try {
     $pdo = new PDO(
         sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $config['db_host'], $config['db_port'], $config['db_name']),
