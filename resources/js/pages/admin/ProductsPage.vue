@@ -1,18 +1,18 @@
 <template>
     <div class="space-y-5">
         <!-- Toolbar -->
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
             <input
                 v-model="filters.search"
                 type="search"
                 placeholder="Tìm theo tên hoặc SKU..."
-                class="flex-1 min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                class="w-full sm:flex-1 sm:min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 @input="debouncedLoad"
             />
 
             <select
                 v-model="filters.category_id"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 @change="load"
             >
                 <option value="">Tất cả danh mục</option>
@@ -21,7 +21,7 @@
 
             <select
                 v-model="filters.source"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 @change="load"
             >
                 <option value="">Tất cả nguồn</option>
@@ -31,7 +31,7 @@
             </select>
 
             <button
-                class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
+                class="w-full sm:w-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
                 @click="openCreate"
             >
                 + Thêm sản phẩm
@@ -127,11 +127,11 @@
         <Teleport to="body">
             <div
                 v-if="showModal"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-8"
+                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
                 @click.self="showModal = false"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
                         <h3 class="font-semibold text-gray-900">
                             {{ form.id ? 'Cập nhật sản phẩm' : 'Tạo sản phẩm mới' }}
                         </h3>
@@ -140,7 +140,7 @@
                         </button>
                     </div>
 
-                    <form class="p-6 space-y-4" @submit.prevent="save">
+                    <form class="p-4 sm:p-6 space-y-4" @submit.prevent="save">
                         <div class="grid sm:grid-cols-2 gap-4">
                             <label class="block sm:col-span-2">
                                 <span class="text-sm font-medium text-gray-700">Tên sản phẩm *</span>
@@ -234,7 +234,7 @@ import api from '../../services/api';
 import { errorMessage, formatCurrency } from '../../composables/useFormat';
 
 const columns = [
-    { key: 'name', label: 'Sản phẩm' },
+    { key: 'name', label: 'Sản phẩm', primary: true },
     { key: 'sku', label: 'SKU' },
     { key: 'price', label: 'Giá' },
     { key: 'stock', label: 'Tồn' },

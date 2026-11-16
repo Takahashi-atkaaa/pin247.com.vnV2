@@ -1,8 +1,8 @@
 <template>
     <div class="space-y-5">
         <!-- Trạng thái kết nối -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3 mb-4">
                 <h2 class="font-semibold text-gray-900">Kết nối BigSeller</h2>
                 <div class="flex gap-2">
                     <button
@@ -32,7 +32,7 @@
                     </p>
                 </div>
 
-                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div class="p-4 bg-gray-50 rounded-lg">
                         <p class="text-xs text-gray-500 mb-1">Chế độ</p>
                         <p class="font-semibold" :class="status.is_mock ? 'text-amber-600' : 'text-green-600'">
@@ -102,9 +102,9 @@
         </div>
 
         <!-- Thao tác đồng bộ -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
             <h2 class="font-semibold text-gray-900 mb-4">Đồng bộ thủ công</h2>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <button
                     class="p-4 border border-gray-200 rounded-lg text-left hover:border-brand-400 transition disabled:opacity-50"
                     :disabled="busy"
@@ -144,9 +144,9 @@
         </div>
 
         <!-- Đối chiếu SKU -->
-        <div v-if="reconciliation" class="bg-white border border-gray-200 rounded-xl p-5">
+        <div v-if="reconciliation" class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
             <h2 class="font-semibold text-gray-900 mb-4">Kết quả đối chiếu SKU</h2>
-            <div class="grid sm:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
                 <div class="p-4 bg-green-50 rounded-lg">
                     <p class="text-xs text-green-700 mb-1">Khớp</p>
                     <p class="text-xl font-bold text-green-700">{{ reconciliation.matched_count }}</p>
@@ -161,7 +161,7 @@
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-3 gap-4 text-sm">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                     <h3 class="font-medium text-gray-900 text-xs uppercase mb-2">Khớp</h3>
                     <ul class="space-y-1 font-mono text-xs text-gray-600">
@@ -184,7 +184,7 @@
         </div>
 
         <!-- Cấu hình lịch -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
             <h2 class="font-semibold text-gray-900 mb-4">Cấu hình lịch đồng bộ</h2>
             <div class="grid sm:grid-cols-2 gap-4 max-w-lg">
                 <label class="block">
@@ -219,15 +219,15 @@
         </div>
 
         <!-- Ánh xạ SKU -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <h2 class="font-semibold text-gray-900">Ánh xạ SKU thủ công</h2>
                 <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50" @click="loadMappings">
                     Tải lại
                 </button>
             </div>
 
-            <div class="grid sm:grid-cols-4 gap-3 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
                 <input
                     v-model="mapping.bigseller_sku"
                     placeholder="SKU BigSeller *"
@@ -276,7 +276,7 @@
 
         <!-- Lịch sử đồng bộ -->
         <div>
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                 <h2 class="font-semibold text-gray-900">Lịch sử đồng bộ</h2>
                 <div class="flex gap-2">
                     <select v-model="logFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white" @change="loadLogs">

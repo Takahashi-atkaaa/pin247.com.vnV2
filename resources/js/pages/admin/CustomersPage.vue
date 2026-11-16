@@ -1,11 +1,11 @@
 <template>
     <div class="space-y-5">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <input
                 v-model="filters.search"
                 type="search"
                 placeholder="Tìm tên, SĐT hoặc email..."
-                class="flex-1 min-w-[240px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                class="w-full sm:flex-1 sm:min-w-[240px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 @input="debouncedLoad"
             />
         </div>
@@ -59,19 +59,19 @@
         <Teleport to="body">
             <div
                 v-if="detail"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-8"
+                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
                 @click.self="detail = null"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
                         <h3 class="font-semibold text-gray-900">
                             Lịch sử mua hàng — {{ detail.name }}
                         </h3>
                         <button class="text-gray-400 hover:text-gray-700" @click="detail = null">✕</button>
                     </div>
 
-                    <div class="p-6 space-y-4">
-                        <div class="grid sm:grid-cols-3 gap-4">
+                    <div class="p-4 sm:p-6 space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                             <div class="p-4 bg-gray-50 rounded-lg">
                                 <p class="text-xs text-gray-500">Số đơn</p>
                                 <p class="text-xl font-bold text-gray-900">{{ detail.total_orders }}</p>
@@ -92,12 +92,12 @@
                         </div>
 
                         <div v-for="order in detail.orders || []" :key="order.id" class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-2">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                                 <div>
                                     <span class="font-mono font-semibold text-gray-900">{{ order.order_code }}</span>
                                     <span class="text-xs text-gray-500 ml-2">{{ formatDate(order.created_at, true) }}</span>
                                 </div>
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
                                     <StatusBadge :status="order.sync_status" :label="order.sync_status_label" />
                                     <span class="font-semibold text-gray-900">{{ formatCurrency(order.total_amount) }}</span>
                                 </div>
@@ -125,7 +125,7 @@ import api from '../../services/api';
 import { errorMessage, formatCurrency, formatDate } from '../../composables/useFormat';
 
 const columns = [
-    { key: 'name', label: 'Khách hàng' },
+    { key: 'name', label: 'Khách hàng', primary: true },
     { key: 'phone', label: 'Điện thoại' },
     { key: 'address', label: 'Địa chỉ' },
     { key: 'total_orders', label: 'Số đơn' },

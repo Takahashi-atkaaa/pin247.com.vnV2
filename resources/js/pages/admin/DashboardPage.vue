@@ -6,7 +6,7 @@
                 <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                 </svg>
-                <div>
+                <div class="min-w-0">
                     <p class="font-semibold text-amber-900 text-sm">Đang chạy chế độ MOCK</p>
                     <p class="text-amber-800 text-sm mt-1">
                         Dữ liệu tồn kho và đơn hàng hiện KHÔNG đến từ BigSeller thật.
@@ -18,7 +18,7 @@
         </div>
 
         <!-- Chỉ số đơn hàng -->
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <StatCard
                 v-for="card in orderCards"
                 :key="card.label"
@@ -30,8 +30,8 @@
         </div>
 
         <!-- Chỉ số danh mục & tồn kho -->
-        <div class="grid lg:grid-cols-2 gap-6">
-            <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <div class="grid lg:grid-cols-2 gap-4 sm:gap-6">
+            <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
                 <h2 class="font-semibold text-gray-900 mb-4">Danh mục sản phẩm</h2>
                 <dl class="space-y-3">
                     <div class="flex justify-between text-sm">
@@ -53,7 +53,7 @@
                 </dl>
             </div>
 
-            <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
                 <h2 class="font-semibold text-gray-900 mb-4">Tồn kho</h2>
                 <dl class="space-y-3">
                     <div class="flex justify-between text-sm">
@@ -78,9 +78,9 @@
         </div>
 
         <!-- Doanh thu -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
             <h2 class="font-semibold text-gray-900 mb-4">Doanh thu</h2>
-            <div class="grid sm:grid-cols-3 gap-4">
+            <div class="grid sm:grid-cols-3 gap-3 sm:gap-4">
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-xs text-gray-500 mb-1">Doanh thu website (tổng)</p>
                     <p class="text-xl font-bold text-gray-900">{{ formatCurrency(data.revenue?.website_total) }}</p>
@@ -98,8 +98,8 @@
         </div>
 
         <!-- Trạng thái BigSeller -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <h2 class="font-semibold text-gray-900">Trạng thái BigSeller</h2>
                 <RouterLink
                     :to="{ name: 'admin-bigseller' }"
@@ -108,7 +108,7 @@
                     Quản lý đồng bộ →
                 </RouterLink>
             </div>
-            <div class="grid sm:grid-cols-3 gap-4">
+            <div class="grid sm:grid-cols-3 gap-3 sm:gap-4">
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-xs text-gray-500 mb-1">Chế độ</p>
                     <p class="font-semibold" :class="isMock ? 'text-amber-600' : 'text-green-600'">

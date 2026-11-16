@@ -1,11 +1,11 @@
 <template>
     <div class="space-y-5">
         <!-- Tabs -->
-        <div class="flex gap-1 border-b border-gray-200">
+        <div class="flex gap-1 border-b border-gray-200 overflow-x-auto no-scrollbar">
             <button
                 v-for="tab in tabs"
                 :key="tab.key"
-                class="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition"
+                class="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap"
                 :class="activeTab === tab.key
                     ? 'border-brand-600 text-brand-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'"
@@ -18,24 +18,24 @@
         <!-- =================== TAB: BẬC GIÁ =================== -->
         <div v-show="activeTab === 'tiers'" class="space-y-4">
             <!-- Toolbar -->
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
                 <input
                     v-model="filters.search"
                     type="search"
                     placeholder="Tìm SKU hoặc tên sản phẩm..."
-                    class="flex-1 min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                    class="w-full sm:flex-1 sm:min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                     @input="debouncedLoad"
                 />
 
                 <button
-                    class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition"
+                    class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition"
                     @click="exportCsv"
                 >
                     Xuất Excel (CSV)
                 </button>
 
                 <button
-                    class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
+                    class="w-full sm:w-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
                     @click="openCreate"
                 >
                     + Thêm bậc giá
@@ -176,7 +176,7 @@
         <!-- =================== TAB: FILE BẢNG GIÁ =================== -->
         <div v-show="activeTab === 'documents'" class="space-y-4">
             <!-- Form đăng file -->
-            <div class="bg-white border border-gray-200 rounded-xl p-5">
+            <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
                 <h2 class="font-semibold text-gray-900 mb-4">Đăng file bảng giá cho khách tải</h2>
 
                 <form class="space-y-4" @submit.prevent="uploadDocument">
@@ -291,18 +291,18 @@
         <Teleport to="body">
             <div
                 v-if="showModal"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-8"
+                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
                 @click.self="showModal = false"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="bg-white shadow-xl w-full max-w-2xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
                         <h3 class="font-semibold text-gray-900">
                             {{ form.id ? 'Cập nhật bậc giá' : 'Thêm bậc giá' }}
                         </h3>
                         <button class="text-gray-400 hover:text-gray-700" @click="showModal = false">✕</button>
                     </div>
 
-                    <form class="p-6 space-y-4" @submit.prevent="save">
+                    <form class="p-4 sm:p-6 space-y-4" @submit.prevent="save">
                         <label class="block">
                             <span class="text-sm font-medium text-gray-700">SKU *</span>
                             <input
@@ -405,7 +405,7 @@ const tabs = [
 const activeTab = ref('tiers');
 
 const columns = [
-    { key: 'sku', label: 'SKU' },
+    { key: 'sku', label: 'SKU', primary: true },
     { key: 'product_name', label: 'Sản phẩm' },
     { key: 'min_qty', label: 'SL yêu cầu' },
     { key: 'max_qty', label: 'SL tối đa' },
@@ -414,7 +414,7 @@ const columns = [
 ];
 
 const docColumns = [
-    { key: 'title', label: 'Tiêu đề' },
+    { key: 'title', label: 'Tiêu đề', primary: true },
     { key: 'original_name', label: 'File' },
     { key: 'is_published', label: 'Trạng thái' },
     { key: 'created_at', label: 'Ngày đăng' },

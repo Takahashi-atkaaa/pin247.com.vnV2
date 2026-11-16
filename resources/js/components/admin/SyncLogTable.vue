@@ -5,7 +5,8 @@
             <span class="text-xs text-gray-500">{{ rows.length }} bản ghi</span>
         </div>
 
-        <div class="overflow-x-auto">
+        <!-- DESKTOP (>= md): bảng 6 cột, cuộn ngang -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="text-gray-600 text-xs uppercase bg-white">
                     <tr>
@@ -46,6 +47,44 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- MOBILE (< md): dạng card xếp dọc -->
+        <div class="md:hidden divide-y divide-gray-100">
+            <div v-for="row in rows" :key="row.id" class="p-4 space-y-2">
+                <div class="flex items-start justify-between gap-2">
+                    <span class="font-mono text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 break-all">
+                        {{ row.operation }}
+                    </span>
+                    <span
+                        class="px-2 py-1 rounded-full text-xs font-medium shrink-0"
+                        :class="row.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'"
+                    >
+                        {{ row.success ? 'Thành công' : 'Lỗi' }}
+                    </span>
+                </div>
+
+                <dl class="space-y-1 text-sm">
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500">HTTP</dt>
+                        <dd class="text-xs font-medium" :class="statusClass(row)">
+                            {{ row.response_status ?? '—' }}
+                        </dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500">Thời gian</dt>
+                        <dd class="text-xs text-gray-500">{{ row.duration_ms ?? '—' }} ms</dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-gray-500">Thời điểm</dt>
+                        <dd class="text-xs text-gray-600 text-right">{{ formatDate(row.created_at, true) }}</dd>
+                    </div>
+                </dl>
+
+                <p v-if="row.error_message" class="text-xs text-red-600 pt-1 border-t border-gray-100">
+                    {{ row.error_message }}
+                </p>
+            </div>
         </div>
     </div>
 </template>

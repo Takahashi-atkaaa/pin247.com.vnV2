@@ -1,18 +1,18 @@
 <template>
     <div class="space-y-5">
         <!-- Toolbar -->
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
             <input
                 v-model="filters.search"
                 type="search"
                 placeholder="Tìm SKU hoặc tên sản phẩm..."
-                class="flex-1 min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                class="w-full sm:flex-1 sm:min-w-[220px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 @input="debouncedLoad"
             />
 
             <select
                 v-model="filters.sync_state"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 @change="load"
             >
                 <option value="">Tất cả trạng thái</option>
@@ -28,7 +28,7 @@
             </label>
 
             <button
-                class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
+                class="w-full sm:w-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
                 :disabled="syncing"
                 @click="runSync"
             >
@@ -42,7 +42,7 @@
         <!-- Phân trang -->
         <div
             v-if="meta && meta.last_page > 1"
-            class="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm"
+            class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm"
         >
             <p class="text-gray-500">
                 Trang {{ meta.current_page }} / {{ meta.last_page }} — {{ meta.total }} SKU
@@ -63,7 +63,7 @@
         </div>
 
         <!-- Kho hàng -->
-        <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
             <h2 class="font-semibold text-gray-900 mb-4">Kho hàng & ánh xạ BigSeller</h2>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -104,18 +104,18 @@
         <Teleport to="body">
             <div
                 v-if="historySku"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-8"
+                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
                 @click.self="historySku = null"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
                         <h3 class="font-semibold text-gray-900">
                             Lịch sử tồn kho — <span class="font-mono">{{ historySku }}</span>
                         </h3>
                         <button class="text-gray-400 hover:text-gray-700" @click="historySku = null">✕</button>
                     </div>
 
-                    <div class="p-6">
+                    <div class="p-4 sm:p-6">
                         <div v-if="!history.length" class="text-center py-10 text-sm text-gray-500">
                             Chưa có thay đổi nào được ghi nhận.
                         </div>

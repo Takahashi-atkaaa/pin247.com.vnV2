@@ -1,12 +1,12 @@
 <template>
     <div class="space-y-5">
         <!-- Toolbar -->
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
             <input
                 v-model="filters.order_code"
                 type="search"
                 placeholder="Tìm mã đơn hàng..."
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:border-brand-500"
+                class="w-full sm:w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 @input="debouncedLoad"
             />
 
@@ -14,13 +14,13 @@
                 v-model="filters.phone"
                 type="search"
                 placeholder="Số điện thoại"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-48 focus:outline-none focus:border-brand-500"
+                class="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 @input="debouncedLoad"
             />
 
             <select
                 v-model="filters.sync_status"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 @change="load"
             >
                 <option value="">Tất cả trạng thái</option>
@@ -37,7 +37,7 @@
 
             <select
                 v-model="filters.payment_status"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 @change="load"
             >
                 <option value="">Tất cả thanh toán</option>
@@ -126,18 +126,18 @@
         <Teleport to="body">
             <div
                 v-if="detail"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-8"
+                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
                 @click.self="detail = null"
             >
-                <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
+                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
                         <h3 class="font-semibold text-gray-900">
                             Đơn {{ detail.order_code }}
                         </h3>
                         <button class="text-gray-400 hover:text-gray-700" @click="detail = null">✕</button>
                     </div>
 
-                    <div class="p-6 space-y-5">
+                    <div class="p-4 sm:p-6 space-y-5">
                         <!-- Tổng quan -->
                         <div class="grid sm:grid-cols-2 gap-4">
                             <div class="p-4 bg-gray-50 rounded-lg">
@@ -156,7 +156,7 @@
                         </div>
 
                         <!-- Trạng thái -->
-                        <div class="grid sm:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                             <div>
                                 <p class="text-xs text-gray-500 mb-1">Trạng thái đồng bộ</p>
                                 <StatusBadge :status="detail.sync_status" :label="detail.sync_status_label" />
@@ -248,7 +248,7 @@ import api from '../../services/api';
 import { errorMessage, formatCurrency, formatDate } from '../../composables/useFormat';
 
 const columns = [
-    { key: 'order_code', label: 'Mã đơn' },
+    { key: 'order_code', label: 'Mã đơn', primary: true },
     { key: 'customer_name', label: 'Khách hàng' },
     { key: 'total_amount', label: 'Tổng tiền' },
     { key: 'sync_status', label: 'Đồng bộ' },
