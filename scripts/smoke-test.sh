@@ -17,6 +17,10 @@
 #  LƯU Ý:
 #  - InfinityFree chặn User-Agent không phải trình duyệt => script luôn
 #    gửi UA giống trình duyệt.
+#  - InfinityFree BIND challenge session `__test` vào User-Agent. Cookie giải
+#    bằng UA khác sẽ bị coi như chưa giải => server trả lại trang challenge
+#    (HTTP 200 nhưng body là JS) => test fail hàng loạt. Vì vậy UA mặc định
+#    phải KHỚP với UA dùng trong scripts/infinityfree-challenge.js.
 #  - Các endpoint API được gọi kèm header `Accept: application/json` để
 #    Laravel render lỗi dạng JSON (đúng như frontend Vue axios làm).
 # =============================================================================
@@ -25,7 +29,7 @@ set -uo pipefail
 
 BASE="${1:-http://127.0.0.1:8099}"
 
-UA="${INF_UA:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
+UA="${INF_UA:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
 JSON="Accept: application/json"
 
 # Mảng tuỳ chọn curl dùng chung cho mọi request.

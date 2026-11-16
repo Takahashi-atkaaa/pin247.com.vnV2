@@ -20,7 +20,7 @@
 set -uo pipefail
 
 BASE="${1:-http://127.0.0.1:8099}"
-UA="${INF_UA:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
+UA="${INF_UA:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36}"
 
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@pin247.vn}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin1234}"

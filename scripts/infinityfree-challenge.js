@@ -152,6 +152,23 @@ async function main() {
   const cookieValue = decryptChallenge(aesResponse.body, challenge);
 
   console.error(`[challenge] Giải xong → __test=${cookieValue.slice(0, 16)}…`);
+
+  // ------------------------------------------------------------------
+  // WARM-UP: InfinityFree yêu cầu request đầu tiên sau khi set cookie
+  // phải có `?i=1`. Nếu không, các request sau vẫn bị trả về challenge
+  // page (HTTP 200 nhưng body là JS challenge) => test sẽ báo sai.
+  //
+  // LƯU Ý QUAN TRỌNG: InfinityFree BIND challenge session vào User-Agent.
+  // Cookie giải bằng UA khác sẽ không được chấp nhận. Vì vậy toàn bộ
+  // script dùng CHUNG hằng UA bên dưới, và người gọi (smoke-test.sh,
+  // e2e-test.sh, workflow) PHẢI dùng đúng UA này.
+  // ------------------------------------------------------------------
+  const warmUrl = new URL(url);
+  warmUrl.searchParams.set('i', '1');
+
+  const warm = await httpGet(warmUrl.toString(), { Cookie: `__test=${cookieValue}` });
+
+  console.error(`[challenge] Warm-up ?i=1 → HTTP ${warm.status}`);
   process.stdout.write(`__test=${cookieValue}`);
 }
 
