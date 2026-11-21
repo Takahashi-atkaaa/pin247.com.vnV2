@@ -13,6 +13,7 @@ use App\Models\Payment;
 use App\Models\Sku;
 use App\Services\BigSeller\BigSellerInventoryService;
 use App\Services\BigSeller\BigSellerOrderService;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -34,9 +35,10 @@ class OrderService
      *
      * @param  array<int, array{sku: string, quantity: int}>  $items
      * @param  array<string, mixed>  $customerData
+     * @param  int  $userId  ID tài khoản đã xác thực (bắt buộc — guest không đặt hàng được).
      * @return array{order: Order, warnings: array<int, string>}
      */
-    public function createOrder(array $items, array $customerData, ?int $userId = null): array
+    public function createOrder(array $items, array $customerData, int $userId): array
     {
         if ($items === []) {
             throw new BusinessRuleException('Giỏ hàng trống, không thể tạo đơn hàng.');
@@ -324,39 +326,87 @@ class OrderService
     }
 
     /**
-     * Tìm hoặc tạo khách hàng.
+     * Tìm hoặc tạo hồ sơ khách hàng cho tài khoản đang đăng nhập.
+     *
+     * Chính sách "1 Số điện thoại = 1 hồ sơ khách hàng":
+     *
+     *  1. Ưu tiên hồ sơ đã gắn với tài khoản đang đăng nhập (`user_id`).
+     *  2. Nếu chưa có, tái sử dụng hồ sơ "vãng lai" (`user_id IS NULL`,
+     *     chưa bị xoá mềm) có cùng Số điện thoại — hợp nhất vào tài khoản.
+     *  3. Nếu Số điện thoại đã thuộc hồ sơ của TÀI KHOẢN KHÁC => chặn,
+     *     không được ghi đè hay "cướp" hồ sơ của người khác.
+     *  4. Không tìm thấy hồ sơ phù hợp => tạo mới và gắn `user_id`.
      */
-    protected function resolveCustomer(array $customerData, ?int $userId): ?Customer
+    protected function resolveCustomer(array $customerData, int $userId): Customer
     {
-        $phone = (string) $customerData['phone'];
+        $phone = trim((string) $customerData['phone']);
 
-        $customer = Customer::where('phone', $phone)->first();
+        // --- Bước 1: hồ sơ của chính tài khoản đang đăng nhập ---
+        $customer = Customer::query()
+            ->where('user_id', $userId)
+            ->first();
 
-        if ($customer === null && $userId !== null) {
-            $customer = Customer::where('user_id', $userId)->first();
+        // --- Bước 2: hồ sơ vãng lai cùng SĐT (để hợp nhất) ---
+        if ($customer === null) {
+            $customer = Customer::query()
+                ->whereNull('user_id')
+                ->where('phone', $phone)
+                ->first();
         }
+
+        // --- Bước 3: chặn SĐT đã thuộc tài khoản khác ---
+        //
+        // Kiểm tra TRƯỚC khi ghi dữ liệu để không bao giờ vô tình đổi
+        // `user_id` hoặc cập nhật hồ sơ của tài khoản khác.
+        $ownedByOther = Customer::query()
+            ->where('phone', $phone)
+            ->where('user_id', '!=', $userId)
+            ->whereNotNull('user_id')
+            ->exists();
+
+        if ($ownedByOther) {
+            throw new BusinessRuleException(
+                'Số điện thoại đã được liên kết với tài khoản khác. '
+                .'Vui lòng dùng số điện thoại thuộc tài khoản của bạn hoặc liên hệ hỗ trợ.',
+                ['phone' => $phone],
+            );
+        }
+
+        $attributes = [
+            'name' => $customerData['name'],
+            'email' => $customerData['email'] ?? null,
+            'phone' => $phone,
+            'address' => $customerData['address'] ?? null,
+            'ward' => $customerData['ward'] ?? null,
+            'district' => $customerData['district'] ?? null,
+            'province' => $customerData['province'] ?? null,
+        ];
 
         if ($customer === null) {
-            $customer = Customer::create([
-                'user_id' => $userId,
-                'name' => $customerData['name'],
-                'email' => $customerData['email'] ?? null,
-                'phone' => $phone,
-                'address' => $customerData['address'] ?? null,
-                'ward' => $customerData['ward'] ?? null,
-                'district' => $customerData['district'] ?? null,
-                'province' => $customerData['province'] ?? null,
-            ]);
-        } else {
-            $customer->forceFill([
-                'name' => $customerData['name'],
-                'email' => $customerData['email'] ?? $customer->email,
-                'address' => $customerData['address'] ?? $customer->address,
-                'ward' => $customerData['ward'] ?? $customer->ward,
-                'district' => $customerData['district'] ?? $customer->district,
-                'province' => $customerData['province'] ?? $customer->province,
-            ])->save();
+            // --- Bước 4: tạo hồ sơ mới, gắn tài khoản đang đăng nhập ---
+            try {
+                return Customer::create($attributes + ['user_id' => $userId]);
+            } catch (QueryException $e) {
+                // `customers.user_id` là UNIQUE: 2 request checkout đồng thời
+                // của cùng một tài khoản có thể cùng insert. Đọc lại hồ sơ
+                // đã tồn tại và cập nhật thay vì báo lỗi.
+                $customer = Customer::query()->where('user_id', $userId)->first();
+
+                if ($customer === null) {
+                    throw $e;
+                }
+
+                $customer->forceFill($attributes)->save();
+
+                return $customer;
+            }
         }
+
+        // --- Bước 5: cập nhật hồ sơ (luôn thuộc tài khoản đang đăng nhập) ---
+        //
+        // Hồ sơ vãng lai được hợp nhất => gắn `user_id` của tài khoản hiện tại.
+        // Hồ sơ đã thuộc tài khoản này => chỉ cập nhật thông tin.
+        $customer->forceFill($attributes + ['user_id' => $userId])->save();
 
         return $customer;
     }

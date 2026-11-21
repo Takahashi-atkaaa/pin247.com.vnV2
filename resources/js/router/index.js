@@ -51,7 +51,9 @@ const routes = [
                 path: 'checkout',
                 name: 'checkout',
                 component: () => import('../pages/CheckoutPage.vue'),
-                meta: { title: 'Thanh toán - PIN247', pinCategories: true },
+                // Bắt buộc đăng nhập trước khi thanh toán (khớp với API
+                // `/api/checkout` nằm trong middleware `auth:sanctum`).
+                meta: { title: 'Thanh toán - PIN247', pinCategories: true, requiresAuth: true },
             },
             {
                 path: 'order-tracking',

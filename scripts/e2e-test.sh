@@ -149,28 +149,35 @@ fi
 if [ -n "$SKU" ]; then
     pass "Lấy được SKU từ API: $SKU"
 
-    CHECKOUT=$(api POST "/api/checkout" "" "{
-        \"items\": [{\"sku\": \"$SKU\", \"quantity\": 1}],
-        \"name\": \"Khách Test E2E\",
-        \"phone\": \"0912345678\",
-        \"email\": \"e2e@example.com\",
-        \"address\": \"123 Nguyễn Huệ, P. Bến Nghé\",
-        \"payment_method\": \"COD\"
-    }")
-    CODE_ORDER=$(json_get "$CHECKOUT" "d.get('data',{}).get('order_code','')")
-    SYNC_STATUS=$(json_get "$CHECKOUT" "d.get('data',{}).get('sync_status','')")
-    BS_CODE=$(json_get "$CHECKOUT" "d.get('data',{}).get('bigseller_order_code','')")
-
-    if [ -n "$CODE_ORDER" ]; then
-        pass "Checkout tạo đơn: $CODE_ORDER (sync_status=$SYNC_STATUS)"
+    # Checkout BẮT BUỘC đăng nhập (từ 2026-11-21) => dùng token khách demo.
+    # SĐT phải KHÁC với SĐT đã gắn với tài khoản khách demo (0912345678)
+    # vì chính sách "1 SĐT = 1 hồ sơ khách hàng".
+    if [ -z "$CUST_TOKEN" ]; then
+        fail "Bỏ qua checkout: không có token khách hàng (bước 3 thất bại)"
     else
-        fail "Checkout thất bại: $(printf '%s' "$CHECKOUT" | head -c 300)"
-    fi
+        CHECKOUT=$(api POST "/api/checkout" "$CUST_TOKEN" "{
+            \"items\": [{\"sku\": \"$SKU\", \"quantity\": 1}],
+            \"name\": \"Khách Test E2E\",
+            \"phone\": \"0900999888\",
+            \"email\": \"e2e@example.com\",
+            \"address\": \"123 Nguyễn Huệ, P. Bến Nghé\",
+            \"payment_method\": \"COD\"
+        }")
+        CODE_ORDER=$(json_get "$CHECKOUT" "d.get('data',{}).get('order_code','')")
+        SYNC_STATUS=$(json_get "$CHECKOUT" "d.get('data',{}).get('sync_status','')")
+        BS_CODE=$(json_get "$CHECKOUT" "d.get('data',{}).get('bigseller_order_code','')")
 
-    if echo "$BS_CODE" | grep -q "BS-MOCK-"; then
-        pass "BigSeller MOCK đã push: $BS_CODE"
-    else
-        fail "Mã đơn BigSeller không phải BS-MOCK-*: '$BS_CODE'"
+        if [ -n "$CODE_ORDER" ]; then
+            pass "Checkout tạo đơn: $CODE_ORDER (sync_status=$SYNC_STATUS)"
+        else
+            fail "Checkout thất bại: $(printf '%s' "$CHECKOUT" | head -c 300)"
+        fi
+
+        if echo "$BS_CODE" | grep -q "BS-MOCK-"; then
+            pass "BigSeller MOCK đã push: $BS_CODE"
+        else
+            fail "Mã đơn BigSeller không phải BS-MOCK-*: '$BS_CODE'"
+        fi
     fi
 else
     fail "Không lấy được SKU từ /api/products"

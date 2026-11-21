@@ -98,7 +98,34 @@ class AccountController extends Controller
         ])->save();
 
         // Đồng bộ hồ sơ khách hàng (tạo nếu chưa có) để dùng làm địa chỉ mặc định.
+        //
+        // Chính sách "1 SĐT = 1 hồ sơ" (khớp với OrderService::resolveCustomer):
+        //  - Ưu tiên hồ sơ đã gắn với tài khoản này.
+        //  - Nếu chưa có, tái sử dụng hồ sơ vãng lai (`user_id IS NULL`) cùng SĐT
+        //    và hợp nhất nó vào tài khoản này.
+        //  - KHÔNG dùng hồ sơ của tài khoản khác chỉ vì trùng SĐT.
         $customer = Customer::where('user_id', $user->id)->first();
+
+        if ($customer === null) {
+            $customer = Customer::whereNull('user_id')
+                ->where('phone', $validated['phone'])
+                ->first();
+        }
+
+        // Số điện thoại đã thuộc hồ sơ của TÀI KHOẢN KHÁC => chặn.
+        //
+        // Kiểm tra trước khi ghi để trả lỗi rõ ràng cho người dùng thay vì
+        // để unique index của database ném lỗi 500.
+        $ownedByOther = Customer::where('phone', $validated['phone'])
+            ->where('user_id', '!=', $user->id)
+            ->whereNotNull('user_id')
+            ->exists();
+
+        if ($ownedByOther) {
+            throw ValidationException::withMessages([
+                'phone' => ['Số điện thoại đã được liên kết với tài khoản khác.'],
+            ]);
+        }
 
         $attributes = [
             'name' => $validated['name'],
@@ -111,7 +138,7 @@ class AccountController extends Controller
         ];
 
         if ($customer) {
-            $customer->forceFill($attributes)->save();
+            $customer->forceFill($attributes + ['user_id' => $user->id])->save();
         } else {
             Customer::create($attributes + ['user_id' => $user->id]);
         }

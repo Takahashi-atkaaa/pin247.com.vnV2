@@ -31,6 +31,17 @@ api.interceptors.response.use(
 
             if (auth.token) {
                 auth.clearSession();
+
+                // Token hết hạn giữa chừng (vd. đang thanh toán) => đưa khách
+                // về trang đăng nhập, giữ lại đường dẫn hiện tại để quay lại
+                // sau khi đăng nhập.
+                const redirect = window.location.pathname + window.location.search;
+
+                if (!redirect.includes('/login')) {
+                    window.location.assign(
+                        `${APP_BASE}/login?redirect=${encodeURIComponent(redirect)}`,
+                    );
+                }
             }
         }
 

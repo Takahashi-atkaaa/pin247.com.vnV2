@@ -188,4 +188,94 @@ class AccountTest extends TestCase
 
         $response->assertOk()->assertJsonPath('data.total_orders', 1);
     }
+
+    /**
+     * Hai tài khoản dùng chung Số điện thoại (và có thể chung Customer)
+     * vẫn KHÔNG nhìn thấy đơn hàng của nhau — lịch sử đơn luôn theo
+     * `orders.user_id`.
+     */
+    public function test_user_does_not_see_orders_of_account_sharing_customer_phone(): void
+    {
+        $user = $this->customerUser();
+        $other = $this->customerUser(['email' => 'other@example.com']);
+
+        $sharedCustomer = Customer::create([
+            'user_id' => $user->id,
+            'name' => 'Nguyễn Văn A',
+            'email' => 'khach@example.com',
+            'phone' => '0901234567',
+        ]);
+
+        $mine = Order::create([
+            'order_code' => 'PIN247-20260101-EEEEEE',
+            'user_id' => $user->id,
+            'customer_id' => $sharedCustomer->id,
+            'customer_name' => 'Nguyễn Văn A',
+            'customer_phone' => '0901234567',
+            'shipping_address' => '123 Nguyễn Huệ',
+            'total_amount' => 100000,
+        ]);
+
+        // Đơn của tài khoản khác nhưng dùng CHUNG Customer + CHUNG SĐT.
+        $theirs = Order::create([
+            'order_code' => 'PIN247-20260101-FFFFFF',
+            'user_id' => $other->id,
+            'customer_id' => $sharedCustomer->id,
+            'customer_name' => 'Người Khác',
+            'customer_phone' => '0901234567',
+            'shipping_address' => '456 Lê Lợi',
+            'total_amount' => 200000,
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/account/orders');
+
+        $response->assertOk()->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $mine->id);
+        $response->assertJsonMissing(['id' => $theirs->id]);
+
+        // Thống kê cũng phải tách bạch.
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/account/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_orders', 1);
+
+        $this->actingAs($other, 'sanctum')
+            ->getJson('/api/account/orders')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $theirs->id);
+    }
+
+    /**
+     * Cập nhật hồ sơ KHÔNG được chiếm hồ sơ của tài khoản khác chỉ vì
+     * trùng Số điện thoại — phải bị từ chối bằng lỗi validation.
+     */
+    public function test_update_profile_does_not_take_over_other_account_customer(): void
+    {
+        $other = $this->customerUser(['email' => 'other@example.com']);
+
+        $otherCustomer = Customer::create([
+            'user_id' => $other->id,
+            'name' => 'Người Khác',
+            'email' => 'other@example.com',
+            'phone' => '0901234567',
+        ]);
+
+        $user = $this->customerUser();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/account/profile', [
+                'name' => 'Trần Văn B',
+                'email' => 'tranb@example.com',
+                'phone' => '0901234567',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('phone')
+            ->assertJsonFragment(['Số điện thoại đã được liên kết với tài khoản khác.']);
+
+        $otherCustomer->refresh();
+
+        $this->assertSame($other->id, $otherCustomer->user_id);
+        $this->assertSame('Người Khác', $otherCustomer->name);
+    }
 }

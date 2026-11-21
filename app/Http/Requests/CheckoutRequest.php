@@ -23,6 +23,12 @@ class CheckoutRequest extends FormRequest
             'items.*.sku' => ['required', 'string', 'max:100'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:9999'],
 
+            // Không tin tưởng định danh người dùng từ payload.
+            // `user_id` / `customer_id` của đơn luôn lấy từ tài khoản đã
+            // xác thực (middleware `auth:sanctum`).
+            'user_id' => ['prohibited'],
+            'customer_id' => ['prohibited'],
+
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+\s.\-()]+$/'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -50,6 +56,8 @@ class CheckoutRequest extends FormRequest
             'items.required' => 'Giỏ hàng không có sản phẩm nào.',
             'items.*.sku.required' => 'Thiếu mã SKU sản phẩm.',
             'items.*.quantity.min' => 'Số lượng phải lớn hơn 0.',
+            'user_id.prohibited' => 'Không được gửi user_id khi đặt hàng.',
+            'customer_id.prohibited' => 'Không được gửu customer_id khi đặt hàng.',
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
             'phone.regex' => 'Số điện thoại không hợp lệ.',

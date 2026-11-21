@@ -40,7 +40,9 @@ Route::get('/categories', [ProductController::class, 'categories']);
 Route::get('/stock', [ProductController::class, 'stock']);
 
 Route::post('/cart/validate', [CartController::class, 'validate'])->middleware('throttle:30,1');
-Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1');
+
+// Tra cứu đơn hàng bằng mã đơn + SĐT — PUBLIC (khách không có tài khoản
+// vẫn cần tra cứu đơn COD).
 Route::post('/orders/track', [CheckoutController::class, 'track'])->middleware('throttle:20,1');
 
 Route::post('/support/requests', [SupportController::class, 'store'])->middleware('throttle:5,5');
@@ -59,6 +61,12 @@ Route::get('/price-list/documents/{document}/download', [PriceListController::cl
 // ---------------------------------------------------------------------------
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy']);
+
+    // Đặt hàng — BẮT BUỘC đăng nhập.
+    // Guest KHÔNG được tạo đơn hàng. `user_id` của đơn luôn lấy từ
+    // tài khoản đã xác thực (không tin tưởng payload của frontend).
+    Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1');
+
     Route::get('/me', fn (\Illuminate\Http\Request $request) => response()->json([
         'data' => [
             'id' => $request->user()->id,

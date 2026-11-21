@@ -27,6 +27,10 @@ class CheckoutController extends Controller
      *  2. Kiểm tra tồn kho (cache + kiểm tra gần thời điểm đặt hàng).
      *  3. Tạo đơn nội bộ với trạng thái PENDING_SYNC.
      *  4. Dispatch job đẩy lên BigSeller.
+     *
+     * Yêu cầu: route này nằm trong middleware `auth:sanctum` => luôn có
+     * tài khoản đã xác thực. `user_id` của đơn lấy từ token, KHÔNG lấy
+     * từ payload của client.
      */
     public function store(CheckoutRequest $request): JsonResponse
     {
@@ -36,7 +40,7 @@ class CheckoutController extends Controller
             $result = $this->orderService->createOrder(
                 $items,
                 $request->validated(),
-                $request->user()?->id,
+                $request->user()->id,
             );
         } catch (BusinessRuleException $e) {
             return response()->json([
