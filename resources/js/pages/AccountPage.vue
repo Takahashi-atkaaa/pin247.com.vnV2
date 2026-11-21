@@ -448,8 +448,12 @@ async function saveProfile() {
         profile.value = data.data.profile || profile.value;
 
         // Đồng bộ thông tin user trong store (tên/email có thể đã đổi).
+        //
+        // Cập nhật TRỰC TIẾP `auth.user` thay vì gọi `setSession()` —
+        // `setSession` sẽ reset cờ `userLoaded` khiến mỗi lần lưu phải
+        // gọi lại `/api/me`. Dữ liệu ở đây đến từ server nên vẫn an toàn.
         if (data.data.user) {
-            auth.setSession(auth.token, { ...auth.user, ...data.data.user });
+            auth.user = { ...auth.user, ...data.data.user };
         }
 
         window.alert(data.message || 'Đã cập nhật thông tin.');

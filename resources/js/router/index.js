@@ -161,19 +161,66 @@ const router = createRouter({
     },
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
     const auth = useAuthStore();
 
-    if (to.meta.requiresAuth && !auth.isAuthenticated) {
-        return { name: 'login', query: { redirect: to.fullPath } };
+    // --- Khu vực quản trị: BẮT BUỘC hỏi server ---
+    //
+    // `is_admin` KHÔNG được lấy từ localStorage (ai cũng sửa được).
+    // Guard gọi `GET /api/me` để server xác thực token và trả về quyền
+    // thật. Token giả/rỗng => 401 => session bị xoá => về trang đăng nhập.
+    if (to.meta.requiresAdmin) {
+        if (!auth.token) {
+            return { name: 'login', query: { redirect: to.fullPath } };
+        }
+
+        const user = await auth.fetchUser();
+
+        if (!user) {
+            return { name: 'login', query: { redirect: to.fullPath } };
+        }
+
+        if (!user.is_admin) {
+            return { name: 'home' };
+        }
+
+        return true;
     }
 
-    if (to.meta.requiresAdmin && !auth.isAdmin) {
-        return { name: 'home' };
+    if (to.meta.requiresAuth) {
+        if (!auth.token) {
+            return { name: 'login', query: { redirect: to.fullPath } };
+        }
+
+        // Token có thể đã bị thu hồi (đổi mật khẩu, đăng xuất ở nơi khác).
+        // Hỏi server để chắc chắn session còn hợp lệ trước khi vào trang.
+        const user = await auth.fetchUser();
+
+        if (!user) {
+            auth.clearSession();
+
+            return { name: 'login', query: { redirect: to.fullPath } };
+        }
+
+        return true;
     }
 
-    if (to.meta.guestOnly && auth.isAuthenticated) {
-        return { name: 'home' };
+    if (to.meta.guestOnly) {
+        if (!auth.token) {
+            return true;
+        }
+
+        // Token còn hiệu lực => đã đăng nhập => không vào trang đăng nhập.
+        // Token chết => coi như khách vãng lai, cho qua.
+        const user = await auth.fetchUser();
+
+        if (user) {
+            return { name: 'home' };
+        }
+
+        auth.clearSession();
+
+        return true;
     }
 
     return true;

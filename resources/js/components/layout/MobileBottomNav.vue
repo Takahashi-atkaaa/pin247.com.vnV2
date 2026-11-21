@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import { useCartStore } from '../../stores/cart';
@@ -49,6 +49,12 @@ import { useCartStore } from '../../stores/cart';
 const route = useRoute();
 const cart = useCartStore();
 const auth = useAuthStore();
+
+// Xác thực token với server để biết quyền admin (link admin trong
+// thanh điều hướng di động). Không dựa vào localStorage.
+onMounted(() => {
+    auth.fetchUser();
+});
 
 const items = computed(() => [
     {

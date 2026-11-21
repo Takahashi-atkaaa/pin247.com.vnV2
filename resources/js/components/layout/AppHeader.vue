@@ -230,7 +230,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import ProductSearch from '../ProductSearch.vue';
 import { useCartStore } from '../../stores/cart';
@@ -241,4 +241,10 @@ const auth = useAuthStore();
 
 const mobileMenuOpen = ref(false);
 const searchOpen = ref(false);
+
+// Xác thực token với server để biết tên hiển thị + quyền admin.
+// Không dựa vào localStorage (không đáng tin).
+onMounted(() => {
+    auth.fetchUser();
+});
 </script>

@@ -108,6 +108,9 @@ async function logout() {
 }
 
 onMounted(async () => {
+    // Bảo đảm có thông tin user (tên hiển thị) — nguồn duy nhất là server.
+    await auth.fetchUser();
+
     try {
         const { data } = await api.get('/admin/bigseller/status');
         isMock.value = data.data.is_mock;

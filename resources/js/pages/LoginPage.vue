@@ -70,11 +70,40 @@ async function submit() {
     try {
         await auth.login(form.email, form.password);
 
-        router.push(route.query.redirect || (auth.isAdmin ? '/admin/dashboard' : '/'));
+        router.push(safeRedirect());
     } catch (err) {
         error.value = errorMessage(err, 'Đăng nhập thất bại.');
     } finally {
         loading.value = false;
     }
+}
+
+/**
+ * Tính đường dẫn điều hướng sau khi đăng nhập.
+ *
+ * Bảo mật — chống open redirect:
+ *  - Chỉ chấp nhận path nội bộ bắt đầu bằng `/`.
+ *  - Loại `//evil.com` (protocol-relative) và `/\evil.com`.
+ *  - Loại `https://evil.com` (URL tuyệt đối).
+ *  - Nếu không hợp lệ => về trang phù hợp với quyền của tài khoản.
+ */
+function safeRedirect() {
+    const target = route.query.redirect;
+
+    if (typeof target !== 'string' || target === '') {
+        return auth.isAdmin ? '/admin/dashboard' : '/';
+    }
+
+    // Phải là path nội bộ: bắt đầu bằng "/" và KHÔNG phải "//" hoặc "/\".
+    const isInternal =
+        target.startsWith('/') &&
+        !target.startsWith('//') &&
+        !target.startsWith('/\\');
+
+    if (!isInternal) {
+        return auth.isAdmin ? '/admin/dashboard' : '/';
+    }
+
+    return target;
 }
 </script>
