@@ -40,7 +40,7 @@
                 </button>
 
                 <p class="text-sm text-center text-gray-500">
-                    Chưa có tài khoản?
+                    Nếu chưa có tài khoản, vui lòng đăng ký tại đây:
                     <RouterLink to="/register" class="text-brand-600 hover:underline font-medium">Đăng ký</RouterLink>
                 </p>
             </form>
