@@ -22,6 +22,9 @@
         <AppFooter />
 
         <MobileBottomNav />
+
+        <!-- Chat hỗ trợ (nút nổi) — khách chưa đăng nhập cũng dùng được -->
+        <SupportChatWidget />
     </div>
 </template>
 
@@ -32,6 +35,7 @@ import AppHeader from '../components/layout/AppHeader.vue';
 import AppFooter from '../components/layout/AppFooter.vue';
 import CategoryNav from '../components/layout/CategoryNav.vue';
 import MobileBottomNav from '../components/layout/MobileBottomNav.vue';
+import SupportChatWidget from '../components/layout/SupportChatWidget.vue';
 
 const route = useRoute();
 

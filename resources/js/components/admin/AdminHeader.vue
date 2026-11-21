@@ -84,6 +84,7 @@ const title = computed(() => {
         'admin-orders': 'Quản lý đơn hàng',
         'admin-price-list': 'Quản lý bảng giá',
         'admin-customers': 'Quản lý khách hàng',
+        'admin-support': 'Hỗ trợ khách hàng',
         'admin-bigseller': 'Đồng bộ BigSeller',
     };
 

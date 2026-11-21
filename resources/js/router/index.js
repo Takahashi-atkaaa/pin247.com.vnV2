@@ -128,6 +128,12 @@ const routes = [
                 meta: { title: 'Quản lý khách hàng - Admin PIN247' },
             },
             {
+                path: 'support',
+                name: 'admin-support',
+                component: () => import('../pages/admin/SupportPage.vue'),
+                meta: { title: 'Hỗ trợ khách hàng - Admin PIN247' },
+            },
+            {
                 path: 'bigseller',
                 name: 'admin-bigseller',
                 component: () => import('../pages/admin/BigSellerPage.vue'),

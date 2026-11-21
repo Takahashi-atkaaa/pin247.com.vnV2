@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Admin\BigSellerController as AdminBigSellerController;
 use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PriceListController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +42,10 @@ Route::get('/stock', [ProductController::class, 'stock']);
 Route::post('/cart/validate', [CartController::class, 'validate'])->middleware('throttle:30,1');
 Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1');
 Route::post('/orders/track', [CheckoutController::class, 'track'])->middleware('throttle:20,1');
+
+Route::post('/support/requests', [SupportController::class, 'store'])->middleware('throttle:5,5');
+Route::get('/support/messages/{token}', [SupportController::class, 'messages'])->middleware('throttle:60,1');
+Route::post('/support/messages/{token}', [SupportController::class, 'reply'])->middleware('throttle:30,1');
 
 // ---------------------------------------------------------------------------
 // Bảng giá — PUBLIC, khách xem không cần đăng nhập
@@ -128,6 +134,14 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/price-list/documents/{document}', [AdminPriceListController::class, 'updateDocument']);
     Route::delete('/price-list/documents/{document}', [AdminPriceListController::class, 'destroyDocument']);
     Route::get('/price-list/documents/{document}/download', [AdminPriceListController::class, 'downloadDocument']);
+
+    // Chat hỗ trợ — admin xem yêu cầu, tìm user, đặt lại mật khẩu.
+    Route::get('/support/lookup', [AdminSupportController::class, 'lookup']);
+    Route::get('/support/requests', [AdminSupportController::class, 'index']);
+    Route::get('/support/requests/{supportRequest}', [AdminSupportController::class, 'show']);
+    Route::post('/support/requests/{supportRequest}/reply', [AdminSupportController::class, 'reply']);
+    Route::post('/support/requests/{supportRequest}/reset-password', [AdminSupportController::class, 'resetPassword']);
+    Route::post('/support/requests/{supportRequest}/resolve', [AdminSupportController::class, 'resolve']);
 
     // BigSeller
     Route::get('/bigseller/status', [AdminBigSellerController::class, 'status']);
