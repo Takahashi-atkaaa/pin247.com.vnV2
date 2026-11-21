@@ -150,17 +150,21 @@ if [ -n "$SKU" ]; then
     pass "Lấy được SKU từ API: $SKU"
 
     # Checkout BẮT BUỘC đăng nhập (từ 2026-11-21) => dùng token khách demo.
-    # SĐT phải KHÁC với SĐT đã gắn với tài khoản khách demo (0912345678)
-    # vì chính sách "1 SĐT = 1 hồ sơ khách hàng".
+    #
+    # SĐT phải là SĐT CỦA CHÍNH khách demo (`0912345678` — trùng hồ sơ của
+    # tài khoản này) vì:
+    #  - Chính sách "1 SĐT = 1 hồ sơ" chặn SĐT thuộc tài khoản khác.
+    #  - Dùng SĐT khác sẽ ghi đè SĐT trên hồ sơ của khách demo, làm hỏng
+    #    dữ liệu mẫu (2 đơn demo giữ SĐT 0912345678).
     if [ -z "$CUST_TOKEN" ]; then
         fail "Bỏ qua checkout: không có token khách hàng (bước 3 thất bại)"
     else
         CHECKOUT=$(api POST "/api/checkout" "$CUST_TOKEN" "{
             \"items\": [{\"sku\": \"$SKU\", \"quantity\": 1}],
-            \"name\": \"Khách Test E2E\",
-            \"phone\": \"0900999888\",
-            \"email\": \"e2e@example.com\",
-            \"address\": \"123 Nguyễn Huệ, P. Bến Nghé\",
+            \"name\": \"Lê Minh Anh\",
+            \"phone\": \"0912345678\",
+            \"email\": \"khachdemo@example.com\",
+            \"address\": \"88 Nguyễn Thị Minh Khai, P. Bến Nghé\",
             \"payment_method\": \"COD\"
         }")
         CODE_ORDER=$(json_get "$CHECKOUT" "d.get('data',{}).get('order_code','')")
