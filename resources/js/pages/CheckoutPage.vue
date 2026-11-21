@@ -16,7 +16,24 @@
             <!-- Thông tin -->
             <div class="space-y-6">
                 <section class="bg-white border border-gray-200 rounded-xl p-5">
-                    <h2 class="font-semibold text-gray-900 mb-4">Thông tin người nhận</h2>
+                    <div class="flex items-baseline justify-between gap-3 mb-4">
+                        <h2 class="font-semibold text-gray-900">Thông tin người nhận</h2>
+
+                        <RouterLink
+                            v-if="auth.isAuthenticated"
+                            :to="{ name: 'account' }"
+                            class="text-xs text-brand-600 hover:underline font-medium shrink-0"
+                        >
+                            Sửa trong tài khoản của tôi
+                        </RouterLink>
+                    </div>
+
+                    <p
+                        v-if="prefilled"
+                        class="mb-4 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                    >
+                        Đã tự động điền từ hồ sơ của bạn. Vui lòng kiểm tra lại trước khi đặt hàng.
+                    </p>
 
                     <div class="grid sm:grid-cols-2 gap-4">
                         <div>
@@ -236,19 +253,22 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
 import { useCartStore } from '../stores/cart';
 import { formatCurrency, errorMessage } from '../composables/useFormat';
 
 const router = useRouter();
 const cart = useCartStore();
+const auth = useAuthStore();
 
 const submitting = ref(false);
 const error = ref('');
 const warnings = ref([]);
 const success = ref(null);
+const prefilled = ref(false);
 
 const paymentMethods = [
     {
@@ -280,6 +300,37 @@ const form = reactive({
     note: '',
     payment_method: 'COD',
 });
+
+/**
+ * Tự động điền thông tin người nhận từ hồ sơ khách hàng đã lưu.
+ *
+ * Chỉ điền những trường NGƯỜI DÙNG CHƯA nhập — không ghi đè giá trị họ
+ * đã gõ (ví dụ khi quay lại trang thanh toán sau khi đổi ý).
+ *
+ * Nguồn: GET /api/account/profile (đã có sẵn, không cần endpoint mới).
+ */
+async function prefillFromProfile() {
+    if (!auth.isAuthenticated) {
+        return;
+    }
+
+    try {
+        const { data } = await api.get('/account/profile');
+
+        const profile = data.data?.profile || {};
+
+        for (const field of ['name', 'phone', 'email', 'address', 'ward', 'district', 'province']) {
+            if (!form[field] && profile[field]) {
+                form[field] = profile[field];
+                prefilled.value = true;
+            }
+        }
+    } catch {
+        // Không tải được hồ sơ thì khách tự nhập — không chặn thanh toán.
+    }
+}
+
+onMounted(prefillFromProfile);
 
 const shippingFee = computed(() => (cart.total >= 500000 ? 0 : 30000));
 
