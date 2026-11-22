@@ -180,6 +180,46 @@ class ProductVariantManagementTest extends TestCase
         ]);
     }
 
+    public function test_regenerating_variants_without_payload_preserves_manual_price(): void
+    {
+        $token = $this->adminToken();
+
+        $product = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/admin/products', [
+                'name' => 'Pin giữ giá',
+                'price' => 100000,
+                'attributes' => [
+                    ['name' => 'Kiểu', 'values' => ['A', 'B']],
+                ],
+            ])->json('data');
+
+        // Admin chỉnh giá biến thể qua API chi tiết.
+        $variantId = $product['variants'][0]['id'];
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/admin/products/{$product['id']}/variants/{$variantId}", [
+                'price' => 555000,
+            ])->assertOk();
+
+        // Regenerate thuộc tính mà KHÔNG gửi payload `variants`:
+        // giá đã chỉnh phải được giữ nguyên (không reset về giá sản phẩm).
+        $update = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->putJson("/api/admin/products/{$product['id']}", [
+                'attributes' => [
+                    ['name' => 'Kiểu', 'values' => ['A', 'B']],
+                ],
+            ]);
+
+        $update->assertOk();
+
+        $variants = $update->json('data.variants');
+
+        $edited = collect($variants)->firstWhere('id', $variantId);
+
+        $this->assertNotNull($edited);
+        $this->assertSame(555000.0, (float) $edited['price']);
+    }
+
     public function test_manual_variant_data_overrides_generated_values(): void
     {
         $token = $this->adminToken();

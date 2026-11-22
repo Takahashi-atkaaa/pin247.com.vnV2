@@ -164,9 +164,18 @@ class ProductAttributeService
                 $optionNames = $attributes->pluck('name')->values()->all();
                 $optionValues = $combination;
 
+                // Biến thể ĐÃ TỒN TẠI: giữ nguyên giá/SKU admin đã chỉnh,
+                // không reset về giá sản phẩm (tránh mất dữ liệu khi API
+                // được gọi mà không kèm payload `variants`).
+                $price = $variant->exists
+                    ? $variant->price
+                    : $product->price;
+
                 $variant->fill([
                     'product_id' => $product->id,
-                    'name' => $this->buildVariantName($optionNames, $optionValues, $product),
+                    'name' => $variant->exists && filled($variant->name)
+                        ? $variant->name
+                        : $this->buildVariantName($optionNames, $optionValues, $product),
                     'option_1_name' => $optionNames[0] ?? null,
                     'option_1_value' => $optionValues[0] ?? null,
                     'option_2_name' => $optionNames[1] ?? null,
@@ -176,8 +185,8 @@ class ProductAttributeService
                     'attribute_signature' => $signature,
                     'sort_order' => $index,
                     // Giá mặc định = giá sản phẩm (admin có thể sửa riêng).
-                    'price' => $product->price,
-                    'is_active' => true,
+                    'price' => $price,
+                    'is_active' => $variant->exists ? $variant->is_active : true,
                 ]);
 
                 // Áp dụng dữ liệu admin nhập tay (giá/SKU/ảnh...) nếu có.
