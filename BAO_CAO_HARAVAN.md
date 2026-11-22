@@ -16,9 +16,15 @@
 | **GĐ2** | Đơn vị tính (UoM) — quy đổi + giá tự tính | ✅ Hoàn thành |
 | **GĐ3** | Lịch sử cập nhật, nhân bản sản phẩm, thao tác hàng loạt | ✅ Hoàn thành |
 
-Kèm theo là **3 lỗi có sẵn được phát hiện & sửa** (chi tiết ở mục 6).
+**Barcode:** không bắt buộc (theo yêu cầu). Cột `barcode` vẫn tồn tại trong `product_units` dạng nullable cho tương thích tương lai nhưng **không được bắt buộc hay kiểm tra** trong logic nghiệp vụ — mọi đơn vị tính đều để `NULL`.
 
-**Kết quả kiểm thử:** `131 passed (587 assertions)` — không regression.
+Kèm theo là **7 lỗi có sẵn được phát hiện & sửa** (chi tiết ở mục 6), trong đó lỗi 6 là bug deploy khiến bảng mới trên production bị rỗng.
+
+**Kết quả kiểm thử:**
+- Unit test: `124 passed (560 assertions)` — không regression
+- Import SQL (mô phỏng DB trống): `368/368` câu lệnh OK, `36/36` bảng tạo mới, **0 lỗi**
+- CI pipeline: **success** — smoke test `22/22`, E2E test `10/10`
+- E2E production (`scripts/e2e-haravan-test.sh`): cả 3 giai đoạn đều pass trên `https://tunganhahihi.io.vn`
 
 ---
 
@@ -535,9 +541,20 @@ scripts/e2e-haravan-test.sh + E2E test 3 giai đoạn Haravan trên production (
 | Test mới (GĐ3) | Ghi lịch sử; đồng bộ giá → SKU; nhân bản; bulk sản phẩm; bulk điều chỉnh giá |
 | Regression | Sửa lỗi "0 biến thể"; phân quyền guest 401 |
 | Workflow tích hợp | Tạo → sửa giá → thêm đơn vị → nhân bản → hiển thị storefront |
-| **Toàn bộ suite** | **131 passed (587 assertions)** — 0 failed |
+| **Toàn bộ suite** | **124 passed (560 assertions)** — 0 failed |
 | Import SQL (mô phỏng DB trống) | 368/368 câu lệnh OK, 36/36 bảng tạo mới, **0 lỗi** |
-| E2E production (`scripts/e2e-haravan-test.sh`) | Tạo SP + sinh biến thể Cartesian → thêm đơn vị → lịch sử → nhân bản → bulk → storefront |
+| CI pipeline | Smoke test **22/22**, E2E test **10/10** (trước: 8/10) |
+| E2E production (`scripts/e2e-haravan-test.sh`) | Tạo SP → sinh 4 biến thể Cartesian → 3 đơn vị tính → lịch sử → nhân bản → bulk → storefront: **tất cả pass** |
+
+### Kết quả verify trên production (`https://tunganhahihi.io.vn`)
+
+| Hạng mục | Kết quả |
+|---|---|
+| Bảng `product_attributes` | **27 dòng** (trước: 0) |
+| Bảng `product_attribute_values` | **35 dòng** (trước: 0) |
+| Bảng `product_units` | **69 dòng** (trước: 0) |
+| Sản phẩm admin hiện "0 biến thể" | **0** (trước: có lỗi) |
+| Storefront hiển thị biến thể + đơn vị tính | ✅ kèm giá quy đổi đúng |
 
 ---
 
