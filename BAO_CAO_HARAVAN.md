@@ -370,6 +370,67 @@ Hậu quả: mất vĩnh viễn lịch sử đơn hàng, tồn kho, biến thể
 
 **Sửa:** xây dựng mới `ProductAttributesEditor.vue` + tích hợp vào `ProductsPage.vue` (mục 3.4).
 
+### 6.6. 🔴 Lỗi 6 — Deploy import SQL sai (bảng mới rỗng trên production)
+
+**Triệu chứng:** CI deploy báo thành công, smoke test 22/22 pass, nhưng trên production:
+- Bảng `product_attributes`, `product_units`, `product_variant_histories` **tồn tại nhưng 0 dòng**
+- Log import: `Đã chạy 36 câu lệnh. Có 51 câu lệnh lỗi` với
+  `Table 'xxx' already exists` và `Duplicate entry '1' for key 'PRIMARY'`
+- E2E test fail 2/10 (`Đồng bộ tồn kho` và `Đăng xuất` → 401)
+
+**Nguyên nhân gốc:** `deploy/deploy-import.php` dùng regex để tách câu lệnh SQL:
+
+```php
+$statements = preg_split('/;\s*[\r\n]+/', $sql);
+```
+
+Regex này **yêu cầu `;` phải nằm cuối dòng**. Nhưng `mysqldump` xuất:
+
+```sql
+-- Table structure for table `bigseller_connections`
+DROP TABLE IF EXISTS `bigseller_connections`;
+/*!40101 SET @saved_cs_client = @@character_set_client */;
+```
+
+Dấu `;` của `DROP TABLE` nằm **giữa dòng** → regex cắt sai chỗ → `DROP TABLE` bị dính vào một khối bắt đầu bằng `--` → script bỏ qua cả khối (coi là comment) → **không DROP được bảng cũ** → `CREATE TABLE` báo *"already exists"* → `INSERT` báo *"Duplicate entry"* → dữ liệu import sai.
+
+Sau khi sửa: **36/36 bảng có `DROP TABLE`** (trước: **0**).
+
+**Sửa:** thay regex bằng vòng lặp quét ký tự, cắt tại `;` chỉ khi:
+- Không nằm trong khối `/* ... */` (giữ nguyên `/*! ... */` vì chứa lệnh thật của MySQL)
+- Không nằm trong chuỗi literal `'...'`
+
+Sau đó bỏ các dòng comment thuần (`--`, `#`) nhưng **giữ phần lệnh nằm sau chúng** (chính là `DROP TABLE`). Bổ sung fallback khi gặp *"already exists"*: `DROP TABLE IF EXISTS` rồi thử lại.
+
+**Kiểm chứng:**
+
+| | Trước | Sau |
+|---|---|---|
+| Số câu lệnh tách ra | 369 (sai) | 368 (đúng) |
+| `DROP TABLE` thực thi | **0** | **36** |
+| `CREATE TABLE` | 36 (lỗi 1050) | 36 (OK) |
+| Lỗi import | 51 | **0** |
+| `product_attributes` | 0 dòng | 27 dòng |
+
+Thêm 2 file hỗ trợ:
+- `deploy/deploy-db-check.php` — script kiểm tra nhanh DB production (tự xoá sau khi chạy)
+- `scripts/e2e-haravan-test.sh` — E2E test đầy đủ 3 giai đoạn Haravan trên production
+
+### 6.7. 🟡 Lỗi 7 — Thiếu đơn vị tính cho dữ liệu cũ
+
+**Triệu chứng:** `product_units` rỗng sau khi deploy → storefront không hiển thị được phần chọn đơn vị tính, giá quy đổi không hoạt động.
+
+**Nguyên nhân:** Migration tạo bảng nhưng không có seed dữ liệu cho các biến thể đã tồn tại.
+
+**Sửa:** thêm `database/seeders/ProductUnitSeeder.php`:
+- Đơn vị cơ sở đặt theo loại sản phẩm (viên / cây / bộ / mạch / cái)
+- Tự thêm 2 đơn vị quy đổi: `lô 10` (×10) và `hộp 12` (×12)
+- Giá quy đổi = giá cơ sở × hệ số quy đổi
+- `barcode = NULL` (theo yêu cầu "không cần barcode")
+- Idempotent: chỉ tạo cho biến thể chưa có đơn vị nào
+
+Kết quả: **69 đơn vị tính** cho 23 biến thể.
+
 ---
 
 ## 7. API mới
@@ -408,6 +469,7 @@ database/migrations/2026_11_23_020000_create_product_units_table.php
 database/migrations/2026_11_23_030000_create_product_variant_histories_table.php
 database/migrations/2026_11_23_040000_backfill_product_attributes.php
 database/seeders/ProductAttributeBackfillSeeder.php
+database/seeders/ProductUnitSeeder.php
 ```
 
 ### Backend — Sửa (11 file)
@@ -442,6 +504,13 @@ tests/Feature/ProductVariantManagementTest.php   16 test
 tests/Feature/ProductVariantWorkflowTest.php      5 test
 ```
 
+### Deploy — Sửa (2 file)
+```
+deploy/deploy-import.php    + sửa regex tách câu lệnh SQL (mục 6.6)
+deploy/deploy-db-check.php  + script kiểm tra DB production (mới)
+scripts/e2e-haravan-test.sh + E2E test 3 giai đoạn Haravan trên production (mới)
+```
+
 ---
 
 ## 9. Kiểm thử
@@ -454,6 +523,8 @@ tests/Feature/ProductVariantWorkflowTest.php      5 test
 | Regression | Sửa lỗi "0 biến thể"; phân quyền guest 401 |
 | Workflow tích hợp | Tạo → sửa giá → thêm đơn vị → nhân bản → hiển thị storefront |
 | **Toàn bộ suite** | **131 passed (587 assertions)** — 0 failed |
+| Import SQL (mô phỏng DB trống) | 368/368 câu lệnh OK, 36/36 bảng tạo mới, **0 lỗi** |
+| E2E production (`scripts/e2e-haravan-test.sh`) | Tạo SP + sinh biến thể Cartesian → thêm đơn vị → lịch sử → nhân bản → bulk → storefront |
 
 ---
 
@@ -475,6 +546,18 @@ Pin máy khoan không dây 12V 2.0Ah thay thế
 ```
 
 Migration idempotent — chạy lại không sinh trùng.
+
+### Đơn vị tính (seed)
+
+`ProductUnitSeeder` bổ sung đơn vị tính cho mọi biến thể đã tồn tại:
+
+| Chỉ số | Trước | Sau |
+|---|---|---|
+| `product_units` | 0 | **69** |
+| Biến thể có đơn vị cơ sở (`is_base = 1`, `conversion_rate = 1`) | 0 | **23** |
+
+Mỗi biến thể có 3 đơn vị: đơn vị cơ sở (theo loại sản phẩm) + `lô 10` (×10) + `hộp 12` (×12).
+Giá quy đổi tính tự động: `giá cơ sở × hệ số quy đổi`. `barcode` để NULL.
 
 ---
 
