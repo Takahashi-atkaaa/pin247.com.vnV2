@@ -225,6 +225,18 @@ class ProductAttributeService
                 $keptIds[] = $variant->id;
 
                 $this->syncSkuRecord($product, $variant);
+
+                // GĐ2 — Biến thể MỚI phải có đơn vị tính cơ sở ngay, nếu
+                // không storefront sẽ không hiển thị được phần chọn đơn vị và
+                // giá quy đổi cho biến thể này.
+                //
+                // Chỉ tạo khi biến thể mới (không phải biến thể đã tồn tại) và
+                // chưa có đơn vị nào — không ghi đè cấu hình admin đã làm.
+                if (! $variant->wasRecentlyCreated) {
+                    // Biến thể cũ: giữ nguyên đơn vị.
+                } elseif (! $variant->units()->exists()) {
+                    $this->createDefaultUnit($product, $variant);
+                }
             }
 
             // Ẩn (không xoá) các biến thể không còn khớp thuộc tính.
@@ -246,6 +258,63 @@ class ProductAttributeService
             'updated' => $updated,
             'deactivated' => $deactivated,
         ];
+    }
+
+    /**
+     * Tạo đơn vị tính cơ sở mặc định cho biến thể mới (GĐ2).
+     *
+     * - `conversion_rate = 1` và `is_base = true` (ràng buộc DB: mỗi biến thể
+     *   chỉ được có đúng 1 đơn vị cơ sở).
+     * - Tên đơn vị đoán theo từ khoá trong tên sản phẩm (viên/cây/bộ/mạch).
+     * - `barcode` = NULL — không dùng barcode (theo yêu cầu).
+     */
+    protected function createDefaultUnit(Product $product, ProductVariant $variant): void
+    {
+        $variant->units()->create([
+            'name' => $this->guessUnitName($product->name ?? ''),
+            'conversion_rate' => 1,
+            'is_base' => true,
+            'price' => (float) ($variant->price ?: $product->price),
+            'is_sellable' => true,
+            'barcode' => null,
+        ]);
+    }
+
+    /**
+     * Đoán tên đơn vị cơ sở theo từ khoá trong tên sản phẩm.
+     */
+    protected function guessUnitName(string $productName): string
+    {
+        $name = mb_strtolower($productName);
+
+        $hints = [
+            'pin' => 'viên',
+            'cell' => 'viên',
+            '18650' => 'viên',
+            '21700' => 'viên',
+            'dây' => 'cây',
+            'day' => 'cây',
+            'cáp' => 'cây',
+            'cap' => 'cây',
+            'bộ' => 'bộ',
+            'bo' => 'bộ',
+            'mạch' => 'mạch',
+            'mach' => 'mạch',
+            'sạc' => 'bộ',
+            'sac' => 'bộ',
+            'đầu' => 'cỡ',
+            'dau' => 'cỡ',
+            'hộp' => 'hộp',
+            'hop' => 'hộp',
+        ];
+
+        foreach ($hints as $keyword => $unit) {
+            if (str_contains($name, $keyword)) {
+                return $unit;
+            }
+        }
+
+        return 'cái';
     }
 
     /**
