@@ -224,6 +224,19 @@ Truy cập từ 2 nơi:
 1. Nút "N đơn vị" trong bảng biến thể (form sản phẩm)
 2. Màn "Chi tiết biến thể"
 
+### 4.5. Tự sinh đơn vị cơ sở
+
+Khi `regenerateVariants()` sinh **biến thể mới** (admin thêm giá trị thuộc tính), biến thể đó chưa có đơn vị tính → storefront không hiển thị được phần chọn đơn vị và giá quy đổi.
+
+Xử lý trong `ProductAttributeService::createDefaultUnit()`:
+
+| Trường hợp | Hành vi |
+|---|---|
+| Biến thể **mới** | Tự tạo 1 đơn vị cơ sở: `conversion_rate = 1`, `is_base = true`, tên đoán theo từ khoá tên sản phẩm (viên / cây / bộ / mạch / cái), `barcode = NULL` |
+| Biến thể **đã tồn tại** | Giữ nguyên cấu hình đơn vị admin đã làm — không ghi đè, không xoá |
+
+Dữ liệu mẫu cũng được bổ sung bằng `ProductUnitSeeder` (mục 10) → **69 đơn vị tính** cho 23 biến thể.
+
 ---
 
 ## 5. GĐ3 — Lịch sử, nhân bản, thao tác hàng loạt
