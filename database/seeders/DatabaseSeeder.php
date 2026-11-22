@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             BigSellerConnectionSeeder::class,
             ProductSeeder::class,
             PriceTierSeeder::class,
+            ProductAttributeBackfillSeeder::class,
+            ProductUnitSeeder::class,
         ]);
     }
 }
