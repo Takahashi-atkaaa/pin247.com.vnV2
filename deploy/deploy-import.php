@@ -332,19 +332,165 @@ if ($sql === false || trim($sql) === '') {
     exit;
 }
 
-// Tách câu lệnh theo dấu ";" ở cuối dòng.
-// mysqldump xuất INSERT nhiều dòng dạng:
-//   INSERT INTO `t` VALUES
-//   (...),
-//   (...);
-$statements = preg_split('/;\s*[\r\n]+/', $sql);
+// ---------------------------------------------------------------------------
+// 5a. Tách câu lệnh.
+//
+// BUG QUAN TRỌNG (đã gây lỗi import production):
+//   Regex cũ `preg_split('/;\s*[\r\n]+/', $sql)` KHÔNG tách đúng file do
+//   mysqldump sinh ra. mysqldump xuất:
+//
+//     -- Table structure for table `x`
+//     DROP TABLE IF EXISTS `x`;
+//     /*!40101 SET @saved_cs_client = @@character_set_client */;
+//
+//   Vì `;` của `DROP TABLE` nằm GIỮA dòng (không phải cuối dòng), regex
+//   cũ cắt sai chỗ => `DROP TABLE` bị dính vào một khối bắt đầu bằng `--`
+//   => script bỏ qua khối đó (coi là comment) => KHÔNG DROP được bảng cũ
+//   => `CREATE TABLE` báo "Table already exists"
+//   => `INSERT` báo "Duplicate entry for key PRIMARY"
+//   => dữ liệu import sai (bảng mới rỗng, bảng cũ giữ dữ liệu cũ).
+//
+// Cách sửa: quét ký tự từng cái, cắt ở `;` CHỈ khi không nằm trong
+//   - khối `/* ... */` (comment thường và `/*! ... */`)
+//   - chuỗi literal `'...'`
+// Sau đó bỏ các dòng comment thuần (`-- ...`, `# ...`) nhưng GIỮ phần lệnh
+//   nằm sau chúng.
+// ---------------------------------------------------------------------------
+$statements = [];
+$buffer = '';
+$len = strlen($sql);
+$inBlockComment = false;   // đang trong /* ... */
+$inVersionComment = false; // đang trong /*! ... */ (MySQL-specific)
+$inString = false;
+
+for ($i = 0; $i < $len; $i++) {
+    $char = $sql[$i];
+    $prev = $i > 0 ? $sql[$i - 1] : '';
+
+    // --- Bắt đầu / kết thúc khối comment ---
+    if (! $inBlockComment && $char === '/' && ($sql[$i + 1] ?? '') === '*') {
+        $inBlockComment = true;
+        $inVersionComment = ($sql[$i + 2] ?? '') === '!';
+        $buffer .= $char;
+        continue;
+    }
+
+    if ($inBlockComment && $char === '*' && ($sql[$i + 1] ?? '') === '/') {
+        $inBlockComment = false;
+        $inVersionComment = false;
+        $buffer .= $char;
+        continue;
+    }
+
+    // --- Escape trong chuỗi literal ---
+    if ($inString && $char === '\\') {
+        $buffer .= $char.($sql[$i + 1] ?? '');
+        $i++;
+        continue;
+    }
+
+    if (! $inBlockComment && $char === "'") {
+        $inString = ! $inString;
+        $buffer .= $char;
+        continue;
+    }
+
+    $buffer .= $char;
+
+    // --- Điểm cắt câu lệnh ---
+    if ($char === ';' && ! $inBlockComment && ! $inString) {
+        $statements[] = trim($buffer);
+        $buffer = '';
+    }
+}
+
+if (trim($buffer) !== '') {
+    $statements[] = trim($buffer);
+}
+
+// Bỏ các khối rỗng.
+$statements = array_values(array_filter($statements, fn ($s) => $s !== ''));
+
+// Tách comment đầu dòng (`--` hoặc `#`) khỏi phần lệnh còn lại.
+//
+// Mục đích: `DROP TABLE` đứng sau dòng comment phải được giữ lại và thực
+// thi. Trước đây cả khối bị bỏ qua chỉ vì bắt đầu bằng `--`.
+$cleaned = [];
+
+foreach ($statements as $statement) {
+    $lines = preg_split('/\r?\n/', $statement);
+    $sqlLines = [];
+
+    foreach ($lines as $line) {
+        $trimmed = ltrim($line);
+
+        // Bỏ dòng comment thuần (không có lệnh nào sau nó).
+        if ($trimmed === '' || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '#')) {
+            continue;
+        }
+
+        $sqlLines[] = $line;
+    }
+
+    $sql = trim(implode("\n", $sqlLines));
+
+    if ($sql !== '') {
+        $cleaned[] = $sql;
+    }
+}
+
+$statements = $cleaned;
 
 $total = count($statements);
 $executed = 0;
 $failed = 0;
+$recreated = 0;
+$skipped = 0;
 $errors = [];
 
-$pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+// ---------------------------------------------------------------------------
+// 5b. Tắt kiểm tra foreign key.
+//
+// InfinityFree chạy MariaDB và có thể KHÔNG cho đặt FOREIGN_KEY_CHECKS=0
+// (một số shared host chặn session variable này). Nếu không tắt được thì
+// `DROP TABLE` sẽ fail vì bảng khác đang có FK trỏ tới → "already exists"
+// → "Duplicate entry for key PRIMARY" → dữ liệu import sai.
+//
+// Cách phòng: TRƯỚC khi import, xoá toàn bộ bảng theo thứ tự đảo ngược
+// phụ thuộc, bằng chính MySQL để đảm bảo FK được dọn đúng.
+// ---------------------------------------------------------------------------
+$fkDisabled = false;
+
+try {
+    $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+    $fkDisabled = true;
+    out('Đã tắt kiểm tra foreign key (FOREIGN_KEY_CHECKS=0).', 'ok');
+} catch (Throwable $e) {
+    out('Không tắt được FOREIGN_KEY_CHECKS: '.$e->getMessage(), 'warn');
+}
+
+// Nếu không tắt được FK, dọn bảng cũ trước để import sạch.
+if (! $fkDisabled) {
+    try {
+        $tables = $pdo->query(
+            'SELECT table_name FROM information_schema.tables WHERE table_schema = '
+            .$pdo->quote($config['db_name']).' AND table_type = "BASE TABLE"'
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach (array_reverse($tables) as $table) {
+            try {
+                $pdo->exec('DROP TABLE IF EXISTS `'.str_replace('`', '', $table).'`');
+            } catch (Throwable $e) {
+                // Bảng còn FK tới bảng khác → thử lại sau.
+            }
+        }
+
+        out('Đã dọn '.count($tables).' bảng cũ (không tắt được FK).', 'ok');
+    } catch (Throwable $e) {
+        out('Dọn bảng cũ thất bại: '.$e->getMessage(), 'warn');
+    }
+}
+
 $pdo->exec('SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO"');
 
 // LƯU Ý: InfinityFree chạy MariaDB, không phải MySQL 8.0.
@@ -365,18 +511,43 @@ foreach ($statements as $statement) {
         continue;
     }
 
-    // Bỏ qua comment và câu lệnh rỗng.
-    if (str_starts_with($statement, '--') || str_starts_with($statement, '/*')) {
-        continue;
-    }
-
     try {
         $pdo->exec($statement);
         $executed++;
     } catch (Throwable $e) {
+        $message = $e->getMessage();
+
+        // Lỗi "bảng đã tồn tại": xoá bảng cũ rồi thử lại.
+        //
+        // Nguyên nhân gốc rễ: `DROP TABLE` trong dump bị MariaDB từ chối vì
+        // bảng khác đang có foreign key trỏ tới. Nếu FOREIGN_KEY_CHECKS=0
+        // không bật được thì phải tự xoá bảng trước rồi tạo lại.
+        if (str_contains($message, 'already exists')) {
+            if (preg_match('/Table\s+[\'"`]?([^\'"`\s]+)[\'"`]?\s+already exists/i', $message, $m)) {
+                $table = str_replace('`', '', $m[1]);
+
+                try {
+                    $pdo->exec('DROP TABLE IF EXISTS `'.$table.'`');
+                    $pdo->exec($statement);
+                    $executed++;
+                    $recreated++;
+                    continue;
+                } catch (Throwable $e2) {
+                    $message = $e2->getMessage();
+                }
+            }
+        }
+
+        // Lỗi "duplicate entry": dữ liệu đã tồn tại từ lần import trước.
+        // Bỏ qua — dữ liệu cũ đã có sẵn, không cần chèn lại.
+        if (str_contains($message, 'Duplicate entry')) {
+            $skipped++;
+            continue;
+        }
+
         $failed++;
         if (count($errors) < 10) {
-            $errors[] = mb_substr($e->getMessage(), 0, 200);
+            $errors[] = mb_substr($message, 0, 200);
         }
     }
 }
@@ -384,6 +555,14 @@ foreach ($statements as $statement) {
 $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
 
 out('Đã chạy '.$executed.' câu lệnh.', 'ok');
+
+if ($recreated > 0) {
+    out('  ('.$recreated.' bảng được tạo lại do đã tồn tại từ lần import trước).', 'info');
+}
+
+if ($skipped > 0) {
+    out('  ('.$skipped.' câu INSERT bị bỏ qua vì dữ liệu đã tồn tại).', 'info');
+}
 
 if ($failed > 0) {
     out('Có '.$failed.' câu lệnh lỗi. 10 lỗi đầu tiên:', 'warn');
