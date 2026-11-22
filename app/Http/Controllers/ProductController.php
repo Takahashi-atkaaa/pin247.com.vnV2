@@ -125,7 +125,15 @@ class ProductController extends Controller
         $product = Product::query()
             ->where('slug', $slug)
             ->where('is_active', true)
-            ->with(['category', 'variants.skus', 'skus', 'images'])
+            ->with([
+                'category',
+                // Chỉ hiển thị biến thể đang bán trên website.
+                'variants' => fn ($q) => $q->where('is_active', true),
+                'variants.skus',
+                'variants.units',
+                'skus',
+                'images',
+            ])
             ->firstOrFail();
 
         // Sản phẩm liên quan: cùng danh mục, khác sản phẩm hiện tại.

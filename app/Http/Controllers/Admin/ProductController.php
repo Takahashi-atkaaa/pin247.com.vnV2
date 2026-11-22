@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProductResource;
+use App\Http\Resources\ProductVariantResource;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Services\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +28,7 @@ class ProductController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Product::query()
-            ->with(['category', 'skus', 'variants.skus']);
+            ->with(['category', 'skus', 'variants.skus', 'variants.units', 'attributes.values']);
 
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search): void {
@@ -54,34 +56,75 @@ class ProductController extends Controller
     }
 
     /**
-     * Tạo sản phẩm.
+     * Quy tắc validate dùng chung cho tạo & cập nhật sản phẩm.
+     *
+     * @return array<string, mixed>
      */
-    public function store(Request $request): JsonResponse
+    protected function productRules(bool $isUpdate = false): array
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+        $sometimes = $isUpdate ? 'sometimes' : 'required';
+
+        return [
+            'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'slug' => ['nullable', 'string', 'max:255'],
             'sku' => ['nullable', 'string', 'max:100'],
             'brand' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'specifications' => ['nullable', 'array'],
-            'price' => ['required', 'numeric', 'min:0'],
+            'price' => [$sometimes, 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'image' => ['nullable', 'string', 'max:500'],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
             'is_new' => ['nullable', 'boolean'],
+
+            // GĐ1 — Thuộc tính động (tối đa 3, giống Haravan).
+            // Cho phép gửi nhiều hơn 3 — service sẽ tự cắt còn 3 thuộc tính
+            // đầu (giống Haravan: "hệ thống cho phép tạo tối đa 3 thuộc tính").
+            'attributes' => ['nullable', 'array', 'max:10'],
+            'attributes.*.id' => ['nullable', 'integer'],
+            'attributes.*.name' => ['required', 'string', 'max:100'],
+            'attributes.*.values' => ['required', 'array', 'max:200'],
+            'attributes.*.values.*' => ['required', 'string', 'max:100'],
+
+            // Biến thể (admin có thể chỉnh giá/SKU cho từng biến thể).
             'variants' => ['nullable', 'array'],
-            'variants.*.sku' => ['required_with:variants', 'string', 'max:100'],
+            'variants.*.id' => ['nullable', 'integer'],
+            'variants.*.sku' => ['nullable', 'string', 'max:100'],
             'variants.*.name' => ['nullable', 'string', 'max:255'],
             'variants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.sale_price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.cost_price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.image' => ['nullable', 'string', 'max:500'],
+            'variants.*.is_active' => ['nullable', 'boolean'],
             'variants.*.option_1_name' => ['nullable', 'string', 'max:100'],
             'variants.*.option_1_value' => ['nullable', 'string', 'max:100'],
             'variants.*.option_2_name' => ['nullable', 'string', 'max:100'],
             'variants.*.option_2_value' => ['nullable', 'string', 'max:100'],
-        ]);
+            'variants.*.option_3_name' => ['nullable', 'string', 'max:100'],
+            'variants.*.option_3_value' => ['nullable', 'string', 'max:100'],
+
+            // GĐ2 — Đơn vị tính, gom theo SKU của biến thể.
+            'units' => ['nullable', 'array'],
+            'units.*' => ['nullable', 'array'],
+            'units.*.*.id' => ['nullable', 'integer'],
+            'units.*.*.name' => ['required', 'string', 'max:100'],
+            'units.*.*.conversion_rate' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'units.*.*.is_base' => ['nullable', 'boolean'],
+            'units.*.*.price' => ['nullable', 'numeric', 'min:0'],
+            'units.*.*.is_sellable' => ['nullable', 'boolean'],
+            'units.*.*.barcode' => ['nullable', 'string', 'max:100'],
+        ];
+    }
+
+    /**
+     * Tạo sản phẩm.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate($this->productRules());
 
         $product = $this->productService->create($validated);
 
@@ -96,7 +139,7 @@ class ProductController extends Controller
      */
     public function show(Product $product): JsonResponse
     {
-        $product->load(['category', 'variants.skus', 'skus', 'images']);
+        $product->load(['category', 'variants.skus', 'variants.units', 'skus', 'images', 'attributes.values']);
 
         return response()->json([
             'data' => new ProductResource($product),
@@ -108,26 +151,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'slug' => ['nullable', 'string', 'max:255'],
-            'sku' => ['nullable', 'string', 'max:100'],
-            'brand' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'specifications' => ['nullable', 'array'],
-            'price' => ['sometimes', 'numeric', 'min:0'],
-            'sale_price' => ['nullable', 'numeric', 'min:0'],
-            'cost_price' => ['nullable', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string', 'max:500'],
-            'is_active' => ['nullable', 'boolean'],
-            'is_featured' => ['nullable', 'boolean'],
-            'is_new' => ['nullable', 'boolean'],
-            'variants' => ['nullable', 'array'],
-            'variants.*.sku' => ['required_with:variants', 'string', 'max:100'],
-            'variants.*.name' => ['nullable', 'string', 'max:255'],
-            'variants.*.price' => ['nullable', 'numeric', 'min:0'],
-        ]);
+        $validated = $request->validate($this->productRules(true));
 
         $product = $this->productService->update($product, $validated);
 
@@ -135,6 +159,114 @@ class ProductController extends Controller
             'message' => 'Cập nhật sản phẩm thành công.',
             'data' => new ProductResource($product),
         ]);
+    }
+
+    /**
+     * Nhân bản sản phẩm — clone cơ chế Haravan.
+     *
+     * Copy thuộc tính, biến thể, ảnh, đơn vị tính. SKU được sinh mới.
+     */
+    public function duplicate(Request $request, Product $product): JsonResponse
+    {
+        $copy = $this->productService->duplicate($product, $request->user()?->id);
+
+        return response()->json([
+            'message' => 'Đã nhân bản sản phẩm "'.$product->name.'".',
+            'data' => new ProductResource($copy),
+        ], 201);
+    }
+
+    /**
+     * Chi tiết biến thể — màn "Chi tiết biến thể" (clone Haravan).
+     */
+    public function showVariant(Product $product, ProductVariant $variant): JsonResponse
+    {
+        abort_unless($variant->product_id === $product->id, 404);
+
+        $variant->load(['skus', 'units', 'histories.changedBy', 'product']);
+
+        return response()->json([
+            'data' => new ProductVariantResource($variant),
+        ]);
+    }
+
+    /**
+     * Cập nhật biến thể (tự ghi lịch sử thay đổi).
+     */
+    public function updateVariant(Request $request, Product $product, ProductVariant $variant): JsonResponse
+    {
+        abort_unless($variant->product_id === $product->id, 404);
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'price' => ['sometimes', 'numeric', 'min:0'],
+            'sale_price' => ['nullable', 'numeric', 'min:0'],
+            'cost_price' => ['nullable', 'numeric', 'min:0'],
+            'image' => ['nullable', 'string', 'max:500'],
+            'is_active' => ['sometimes', 'boolean'],
+            'sort_order' => ['sometimes', 'integer', 'min:0'],
+        ]);
+
+        $variant = $this->productService->updateVariant($variant, $validated, $request->user()?->id);
+
+        return response()->json([
+            'message' => 'Cập nhật biến thể thành công.',
+            'data' => new ProductVariantResource($variant),
+        ]);
+    }
+
+    /**
+     * Cập nhật đơn vị tính của biến thể (GĐ2).
+     */
+    public function updateVariantUnits(Request $request, Product $product, ProductVariant $variant): JsonResponse
+    {
+        abort_unless($variant->product_id === $product->id, 404);
+
+        $validated = $request->validate([
+            'units' => ['present', 'array'],
+            'units.*.id' => ['nullable', 'integer'],
+            'units.*.name' => ['required', 'string', 'max:100'],
+            'units.*.conversion_rate' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'units.*.is_base' => ['nullable', 'boolean'],
+            'units.*.price' => ['nullable', 'numeric', 'min:0'],
+            'units.*.is_sellable' => ['nullable', 'boolean'],
+            'units.*.barcode' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $this->productService->updateVariantUnits($variant, $validated['units']);
+
+        $variant->load(['units', 'skus']);
+
+        return response()->json([
+            'message' => 'Cập nhật đơn vị tính thành công.',
+            'data' => [
+                'units' => $this->productService->variantUnits($variant),
+            ],
+        ]);
+    }
+
+    /**
+     * Lịch sử cập nhật biến thể (GĐ3).
+     */
+    public function variantHistory(Product $product, ProductVariant $variant): JsonResponse
+    {
+        abort_unless($variant->product_id === $product->id, 404);
+
+        $histories = $variant->histories()
+            ->with('changedBy')
+            ->limit(100)
+            ->get()
+            ->map(fn ($history) => [
+                'id' => $history->id,
+                'changed_fields' => $history->changed_fields,
+                'before' => $history->before,
+                'after' => $history->after,
+                'summary' => $history->summary,
+                'changed_by' => $history->changedBy?->name,
+                'created_at' => $history->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['data' => $histories]);
     }
 
     /**

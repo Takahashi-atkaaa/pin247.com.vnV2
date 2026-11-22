@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\InventoryController as AdminInventoryController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\PriceListController as AdminPriceListController;
+use App\Http\Controllers\Admin\ProductBulkController as AdminProductBulkController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -102,6 +103,19 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
     Route::post('/products/{product}/images', [AdminProductController::class, 'uploadImage']);
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage']);
+
+    // GĐ3 — Nhân bản sản phẩm (clone cơ chế Haravan).
+    Route::post('/products/{product}/duplicate', [AdminProductController::class, 'duplicate']);
+
+    // GĐ1/GĐ2/GĐ3 — Màn "Chi tiết biến thể".
+    Route::get('/products/{product}/variants/{variant}', [AdminProductController::class, 'showVariant']);
+    Route::put('/products/{product}/variants/{variant}', [AdminProductController::class, 'updateVariant']);
+    Route::put('/products/{product}/variants/{variant}/units', [AdminProductController::class, 'updateVariantUnits']);
+    Route::get('/products/{product}/variants/{variant}/history', [AdminProductController::class, 'variantHistory']);
+
+    // Thao tác hàng loạt (clone cơ chế Haravan).
+    Route::post('/products-bulk', [AdminProductBulkController::class, 'update']);
+    Route::post('/variants-bulk', [AdminProductBulkController::class, 'updateVariants']);
 
     // Danh mục
     Route::get('/categories', [AdminProductController::class, 'categories']);

@@ -24,6 +24,7 @@ class ProductResource extends JsonResource
         // phụ thuộc vào việc đặt tên route.
         $includeRelations = $request->boolean('include', false)
             || $request->is('api/products/*')
+            || $request->is('api/admin/products')
             || $request->is('api/admin/products/*');
 
         $data = [
@@ -67,12 +68,14 @@ class ProductResource extends JsonResource
 
             $data['variants'] = $this->whenLoaded('variants', fn () => $this->variants->map(fn ($variant) => [
                 'id' => $variant->id,
-                'name' => $variant->name,
+                'name' => $variant->displayName(),
                 'sku' => $variant->sku,
                 'option_1_name' => $variant->option_1_name,
                 'option_1_value' => $variant->option_1_value,
                 'option_2_name' => $variant->option_2_name,
                 'option_2_value' => $variant->option_2_value,
+                'option_3_name' => $variant->option_3_name,
+                'option_3_value' => $variant->option_3_value,
                 'price' => (float) $variant->price,
                 'sale_price' => $variant->sale_price !== null ? (float) $variant->sale_price : null,
                 'effective_price' => $variant->effectivePrice(),
@@ -80,7 +83,34 @@ class ProductResource extends JsonResource
                 'is_active' => (bool) $variant->is_active,
                 'available_stock' => (int) ($variant->skus->first()?->sellableQuantity() ?? 0),
                 'sku_id' => $variant->skus->first()?->id,
+
+                // GĐ2 — Đơn vị tính của biến thể.
+                'units' => $variant->relationLoaded('units')
+                    ? $variant->units->map(fn ($unit) => [
+                        'id' => $unit->id,
+                        'name' => $unit->name,
+                        'conversion_rate' => (int) $unit->conversion_rate,
+                        'is_base' => (bool) $unit->is_base,
+                        'price' => $unit->resolvedPrice($variant->effectivePrice()),
+                        'has_custom_price' => $unit->price !== null,
+                        'is_sellable' => (bool) $unit->is_sellable,
+                        'barcode' => $unit->barcode,
+                    ])->values()
+                    : [],
             ]));
+
+            // GĐ1 — Thuộc tính động (dùng để dựng lại form quản lý).
+            $data['attributes'] = $this->whenLoaded('attributes', fn () => $this->attributes->map(fn ($attribute) => [
+                'id' => $attribute->id,
+                'name' => $attribute->name,
+                'position' => (int) $attribute->position,
+                'values' => $attribute->relationLoaded('values')
+                    ? $attribute->values->map(fn ($value) => [
+                        'id' => $value->id,
+                        'value' => $value->value,
+                    ])->values()
+                    : [],
+            ])->values());
 
             $data['images'] = $this->whenLoaded('images', fn () => $this->images->map(fn ($image) => [
                 'id' => $image->id,

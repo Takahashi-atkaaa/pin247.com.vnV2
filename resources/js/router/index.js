@@ -106,6 +106,13 @@ const routes = [
                 meta: { title: 'Quản lý sản phẩm - Admin PIN247' },
             },
             {
+                // GĐ3 — Màn "Chi tiết biến thể" (clone Haravan).
+                path: 'products/:id/variants/:variantId',
+                name: 'admin-product-variant',
+                component: () => import('../pages/admin/ProductVariantPage.vue'),
+                meta: { title: 'Chi tiết biến thể - Admin PIN247' },
+            },
+            {
                 path: 'inventory',
                 name: 'admin-inventory',
                 component: () => import('../pages/admin/InventoryPage.vue'),
