@@ -423,6 +423,7 @@ async function remove(row) {
 
     try {
         await api.delete(`/admin/price-list/tiers/${row.id}`);
+        notify(`Đã xoá bậc giá "${row.sku}".`, 'success');
         await load();
     } catch (error) {
         notify(errorMessage(error), 'error');
@@ -555,6 +556,7 @@ async function removeDocument(row) {
 
     try {
         await api.delete(`/admin/price-list/documents/${row.id}`);
+        notify(`Đã xoá file "${row.title}".`, 'success');
         await loadDocuments();
     } catch (error) {
         notify(errorMessage(error), 'error');

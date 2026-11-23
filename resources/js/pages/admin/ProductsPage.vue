@@ -360,6 +360,7 @@ async function remove(row) {
 
     try {
         await api.delete(`/admin/products/${row.id}`);
+        notify(`Đã xóa sản phẩm "${row.name}".`, 'success');
         await load();
     } catch (error) {
         notify(errorMessage(error), 'error');
