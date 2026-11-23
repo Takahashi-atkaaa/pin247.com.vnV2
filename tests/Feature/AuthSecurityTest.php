@@ -39,14 +39,14 @@ class AuthSecurityTest extends TestCase
         ]);
     }
 
-    private function adminUser(): User
+    protected function adminUser(array $attributes = []): User
     {
-        return User::create([
+        return User::create(array_merge([
             'name' => 'Admin Thật',
             'email' => 'admin-real@pin247.vn',
             'password' => Hash::make('password123'),
             'is_admin' => true,
-        ]);
+        ], $attributes));
     }
 
     // -----------------------------------------------------------------

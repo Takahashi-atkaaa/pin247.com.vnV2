@@ -332,13 +332,13 @@ class PriceListTest extends TestCase
     /**
      * Tạo user admin để đăng nhập.
      */
-    protected function adminUser(): \App\Models\User
+    protected function adminUser(array $attributes = []): \App\Models\User
     {
-        return \App\Models\User::create([
+        return \App\Models\User::create(array_merge([
             'name' => 'Admin',
             'email' => 'admin@test.local',
             'password' => bcrypt('secret1234'),
             'is_admin' => true,
-        ]);
+        ], $attributes));
     }
 }

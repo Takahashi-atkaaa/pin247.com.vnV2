@@ -34,12 +34,12 @@
                     Xuất Excel (CSV)
                 </button>
 
-                <button
-                    class="w-full sm:w-auto px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
-                    @click="openCreate"
+                <router-link
+                    :to="{ name: 'admin-price-tier-create' }"
+                    class="w-full sm:w-auto inline-block text-center px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition"
                 >
                     + Thêm bậc giá
-                </button>
+                </router-link>
             </div>
 
             <DataTable
@@ -75,12 +75,12 @@
 
                 <template #cell-actions="{ row }">
                     <div class="flex gap-2">
-                        <button
+                        <router-link
+                            :to="{ name: 'admin-price-tier-edit', params: { id: row.id } }"
                             class="px-2 py-1 text-xs border border-gray-300 rounded hover:border-brand-500 hover:text-brand-600"
-                            @click="openEdit(row)"
                         >
                             Sửa
-                        </button>
+                        </router-link>
                         <button
                             class="px-2 py-1 text-xs border border-red-200 text-red-600 rounded hover:bg-red-50"
                             @click="remove(row)"
@@ -287,105 +287,6 @@
             </DataTable>
         </div>
 
-        <!-- =================== MODAL BẬC GIÁ =================== -->
-        <Teleport to="body">
-            <div
-                v-if="showModal"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
-                @click.self="showModal = false"
-            >
-                <div class="bg-white shadow-xl w-full max-w-2xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
-                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
-                        <h3 class="font-semibold text-gray-900">
-                            {{ form.id ? 'Cập nhật bậc giá' : 'Thêm bậc giá' }}
-                        </h3>
-                        <button class="text-gray-400 hover:text-gray-700" @click="showModal = false">✕</button>
-                    </div>
-
-                    <form class="p-4 sm:p-6 space-y-4" @submit.prevent="save">
-                        <label class="block">
-                            <span class="text-sm font-medium text-gray-700">SKU *</span>
-                            <input
-                                v-model="form.sku"
-                                required
-                                list="sku-options"
-                                placeholder="Nhập hoặc chọn SKU"
-                                class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                            >
-                            <datalist id="sku-options">
-                                <option v-for="s in skuOptions" :key="s.sku" :value="s.sku">
-                                    {{ s.name }}
-                                </option>
-                            </datalist>
-                        </label>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <label class="block">
-                                <span class="text-sm font-medium text-gray-700">SL yêu cầu tối thiểu *</span>
-                                <input
-                                    v-model.number="form.min_qty"
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    required
-                                    class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                            </label>
-
-                            <label class="block">
-                                <span class="text-sm font-medium text-gray-700">SL tối đa</span>
-                                <input
-                                    v-model.number="form.max_qty"
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    placeholder="Để trống = trở lên"
-                                    class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                            </label>
-
-                            <label class="block">
-                                <span class="text-sm font-medium text-gray-700">Đơn giá (VNĐ) *</span>
-                                <input
-                                    v-model.number="form.unit_price"
-                                    type="number"
-                                    min="0"
-                                    step="100"
-                                    required
-                                    class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                            </label>
-
-                            <label class="block">
-                                <span class="text-sm font-medium text-gray-700">Nhãn</span>
-                                <input
-                                    v-model="form.label"
-                                    placeholder="Lô 50-199"
-                                    class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                >
-                            </label>
-                        </div>
-
-                        <div class="flex justify-end gap-2 pt-4 border-t border-gray-100">
-                            <button
-                                type="button"
-                                class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-                                @click="showModal = false"
-                            >
-                                Huỷ
-                            </button>
-                            <button
-                                type="submit"
-                                :disabled="saving"
-                                class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
-                            >
-                                {{ saving ? 'Đang lưu...' : 'Lưu' }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </Teleport>
     </div>
 </template>
 
@@ -395,6 +296,7 @@ import DataTable from '../../components/admin/DataTable.vue';
 import api from '../../services/api';
 import { downloadFile } from '../../composables/useDownload';
 import { errorMessage, formatCurrency, formatDate } from '../../composables/useFormat';
+import { confirmDialog, notify } from '../../composables/useToast';
 
 const tabs = [
     { key: 'tiers', label: 'Bậc giá' },
@@ -424,8 +326,6 @@ const docColumns = [
 const rows = ref([]);
 const meta = ref(null);
 const loading = ref(false);
-const saving = ref(false);
-const showModal = ref(false);
 
 const documents = ref([]);
 const loadingDocuments = ref(false);
@@ -443,14 +343,6 @@ const filters = reactive({
     page: 1,
 });
 
-const form = reactive({
-    id: null,
-    sku: '',
-    min_qty: 1,
-    max_qty: null,
-    unit_price: 0,
-    label: '',
-});
 
 const docForm = reactive({
     title: '',
@@ -521,61 +413,11 @@ function changePage(page) {
     load();
 }
 
-function openCreate() {
-    Object.assign(form, {
-        id: null,
-        sku: '',
-        min_qty: 1,
-        max_qty: null,
-        unit_price: 0,
-        label: '',
-    });
 
-    showModal.value = true;
-}
 
-function openEdit(row) {
-    Object.assign(form, {
-        id: row.id,
-        sku: row.sku || '',
-        min_qty: row.min_qty,
-        max_qty: row.max_qty,
-        unit_price: row.unit_price,
-        label: row.label || '',
-    });
-
-    showModal.value = true;
-}
-
-async function save() {
-    saving.value = true;
-
-    try {
-        const payload = {
-            sku: form.sku,
-            min_qty: form.min_qty,
-            max_qty: form.max_qty || null,
-            unit_price: form.unit_price,
-            label: form.label || null,
-        };
-
-        if (form.id) {
-            await api.put(`/admin/price-list/tiers/${form.id}`, payload);
-        } else {
-            await api.post('/admin/price-list/tiers', payload);
-        }
-
-        showModal.value = false;
-        await load();
-    } catch (error) {
-        window.alert(errorMessage(error));
-    } finally {
-        saving.value = false;
-    }
-}
 
 async function remove(row) {
-    if (!window.confirm(`Xoá bậc giá "${row.sku}" từ ${row.min_qty}?`)) {
+    if (!(await confirmDialog(`Xoá bậc giá "${row.sku}" từ ${row.min_qty}?`, { danger: true }))) {
         return;
     }
 
@@ -583,7 +425,7 @@ async function remove(row) {
         await api.delete(`/admin/price-list/tiers/${row.id}`);
         await load();
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -594,7 +436,7 @@ async function exportCsv() {
             `bang-gia-pin247-${new Date().toISOString().slice(0, 10)}.csv`,
         );
     } catch (error) {
-        window.alert(errorMessage(error, 'Xuất bảng giá thất bại.'));
+        notify(errorMessage(error, 'Xuất bảng giá thất bại.'), 'error');
     }
 }
 
@@ -602,7 +444,7 @@ async function downloadTemplate() {
     try {
         await downloadFile('/admin/price-list/import-template', 'mau-bang-gia.csv');
     } catch (error) {
-        window.alert(errorMessage(error, 'Tải file mẫu thất bại.'));
+        notify(errorMessage(error, 'Tải file mẫu thất bại.'), 'error');
     }
 }
 
@@ -641,7 +483,7 @@ async function uploadImport(file) {
         importResult.value = data.data;
         await load();
     } catch (error) {
-        window.alert(errorMessage(error, 'Nhập bảng giá thất bại.'));
+        notify(errorMessage(error, 'Nhập bảng giá thất bại.'), 'error');
     }
 }
 
@@ -653,7 +495,7 @@ function onDocFile(event) {
 
 async function uploadDocument() {
     if (!docFile.value) {
-        window.alert('Vui lòng chọn file cần tải lên.');
+        notify('Vui lòng chọn file cần tải lên.', 'success');
 
         return;
     }
@@ -677,7 +519,7 @@ async function uploadDocument() {
 
         await loadDocuments();
     } catch (error) {
-        window.alert(errorMessage(error, 'Tải file lên thất bại.'));
+        notify(errorMessage(error, 'Tải file lên thất bại.'), 'error');
     } finally {
         uploading.value = false;
     }
@@ -691,7 +533,7 @@ async function togglePublish(row) {
 
         await loadDocuments();
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -702,12 +544,12 @@ async function downloadDocument(row) {
             row.original_name || 'bang-gia.pdf',
         );
     } catch (error) {
-        window.alert(errorMessage(error, 'Tải file thất bại.'));
+        notify(errorMessage(error, 'Tải file thất bại.'), 'error');
     }
 }
 
 async function removeDocument(row) {
-    if (!window.confirm(`Xoá file "${row.title}"?`)) {
+    if (!(await confirmDialog(`Xoá file "${row.title}"?`, { danger: true }))) {
         return;
     }
 
@@ -715,7 +557,7 @@ async function removeDocument(row) {
         await api.delete(`/admin/price-list/documents/${row.id}`);
         await loadDocuments();
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 

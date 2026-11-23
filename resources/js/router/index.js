@@ -106,11 +106,31 @@ const routes = [
                 meta: { title: 'Quản lý sản phẩm - Admin PIN247' },
             },
             {
+                // Trang riêng — Tạo / Sửa sản phẩm (không dùng popup).
+                path: 'products/create',
+                name: 'admin-product-create',
+                component: () => import('../pages/admin/ProductFormPage.vue'),
+                meta: { title: 'Tạo sản phẩm - Admin PIN247' },
+            },
+            {
+                path: 'products/:id/edit',
+                name: 'admin-product-edit',
+                component: () => import('../pages/admin/ProductFormPage.vue'),
+                meta: { title: 'Cập nhật sản phẩm - Admin PIN247' },
+            },
+            {
                 // GĐ3 — Màn "Chi tiết biến thể" (clone Haravan).
                 path: 'products/:id/variants/:variantId',
                 name: 'admin-product-variant',
                 component: () => import('../pages/admin/ProductVariantPage.vue'),
                 meta: { title: 'Chi tiết biến thể - Admin PIN247' },
+            },
+            {
+                // Trang riêng — Quản lý đơn vị tính của 1 biến thể.
+                path: 'products/:id/variants/:variantId/units',
+                name: 'admin-product-variant-units',
+                component: () => import('../pages/admin/ProductUnitsPage.vue'),
+                meta: { title: 'Đơn vị tính - Admin PIN247' },
             },
             {
                 path: 'inventory',
@@ -119,10 +139,24 @@ const routes = [
                 meta: { title: 'Quản lý tồn kho - Admin PIN247' },
             },
             {
+                // Trang riêng — Lịch sử tồn kho của 1 SKU.
+                path: 'inventory/:sku/history',
+                name: 'admin-inventory-history',
+                component: () => import('../pages/admin/InventoryHistoryPage.vue'),
+                meta: { title: 'Lịch sử tồn kho - Admin PIN247' },
+            },
+            {
                 path: 'orders',
                 name: 'admin-orders',
                 component: () => import('../pages/admin/OrdersPage.vue'),
                 meta: { title: 'Quản lý đơn hàng - Admin PIN247' },
+            },
+            {
+                // Trang riêng — Chi tiết đơn hàng.
+                path: 'orders/:id',
+                name: 'admin-order-detail',
+                component: () => import('../pages/admin/OrderDetailPage.vue'),
+                meta: { title: 'Chi tiết đơn hàng - Admin PIN247' },
             },
             {
                 path: 'bang-gia',
@@ -131,10 +165,30 @@ const routes = [
                 meta: { title: 'Quản lý bảng giá - Admin PIN247' },
             },
             {
+                // Trang riêng — Thêm / Sửa bậc giá.
+                path: 'bang-gia/tiers/create',
+                name: 'admin-price-tier-create',
+                component: () => import('../pages/admin/PriceTierFormPage.vue'),
+                meta: { title: 'Thêm bậc giá - Admin PIN247' },
+            },
+            {
+                path: 'bang-gia/tiers/:id/edit',
+                name: 'admin-price-tier-edit',
+                component: () => import('../pages/admin/PriceTierFormPage.vue'),
+                meta: { title: 'Cập nhật bậc giá - Admin PIN247' },
+            },
+            {
                 path: 'customers',
                 name: 'admin-customers',
                 component: () => import('../pages/admin/CustomersPage.vue'),
                 meta: { title: 'Quản lý khách hàng - Admin PIN247' },
+            },
+            {
+                // Trang riêng — Lịch sử mua hàng của 1 khách.
+                path: 'customers/:id',
+                name: 'admin-customer-detail',
+                component: () => import('../pages/admin/CustomerDetailPage.vue'),
+                meta: { title: 'Chi tiết khách hàng - Admin PIN247' },
             },
             {
                 path: 'support',

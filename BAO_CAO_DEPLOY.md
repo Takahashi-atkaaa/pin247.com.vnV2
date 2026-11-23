@@ -460,7 +460,7 @@ Các lỗi phụ kèm theo:
 
 **e) Layout & modal:** padding `p-3 / sm:p-4 / lg:p-6`; `min-w-0` chống vỡ flex; modal thành bottom-sheet full-width (`rounded-t-2xl sm:rounded-xl`, `py-0 sm:py-8`), padding `p-4 sm:p-6`, grid 1 cột trên mobile; toolbar input/select `w-full` trên mobile.
 
-**f) Script QA headless browser** — `scripts/qa-admin-mobile.mjs` + `scripts/qa-admin-modal.mjs`, chạy Playwright với viewport 390×844, đo trực tiếp: `documentElement.scrollWidth` vs `innerWidth`, bề rộng sidebar, số element tràn ngang, số card hiển thị, trạng thái drawer.
+**f) Script QA headless browser** — `scripts/qa-admin-mobile.mjs` + `scripts/qa-admin-pages.mjs`, chạy Playwright với viewport 390×844, đo trực tiếp: `documentElement.scrollWidth` vs `innerWidth`, bề rộng sidebar, số element tràn ngang, số card hiển thị, trạng thái drawer.
 
 ### 5.3 Kết quả kiểm chứng (đo thật trên DOM)
 
@@ -672,7 +672,7 @@ Kết quả: 10 pass / 0 fail
 | `sim-router.php` | 157 | Mô phỏng `.htaccess` InfinityFree |
 | `run-local-deploy-test.sh` | 114 | Mô phỏng hosting + smoke + E2E tại local |
 | `qa-admin-mobile.mjs` | 159 | **QA mobile 390×844** (7 trang admin + drawer + desktop) |
-| `qa-admin-modal.mjs` | 105 | **QA modal mobile** |
+| `qa-admin-pages.mjs` | 145 | **QA trang riêng mobile** (không popup + toast/confirm) |
 
 ### Script trên hosting (`deploy/`)
 
@@ -704,4 +704,4 @@ Kết quả: 10 pass / 0 fail
 
 ---
 
-*Báo cáo được biên soạn ngày 17/11/2026 dựa trên: git history (`fba0fbe` → `0a9862c`), log GitHub Actions (`43807260684`, `43824175614`, `43828245828`, `43911996212`, `43917603999`), output thực tế của `smoke-test.sh`, `e2e-test.sh`, `qa-admin-mobile.mjs`, `qa-admin-modal.mjs` trên production.*
+*Báo cáo được biên soạn ngày 17/11/2026 dựa trên: git history (`fba0fbe` → `0a9862c`), log GitHub Actions (`43807260684`, `43824175614`, `43828245828`, `43911996212`, `43917603999`), output thực tế của `smoke-test.sh`, `e2e-test.sh`, `qa-admin-mobile.mjs`, `qa-admin-pages.mjs` trên production.*

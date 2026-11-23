@@ -303,6 +303,7 @@ import StatusBadge from '../../components/StatusBadge.vue';
 import SyncLogTable from '../../components/admin/SyncLogTable.vue';
 import api from '../../services/api';
 import { errorMessage, formatDate } from '../../composables/useFormat';
+import { notify } from '../../composables/useToast';
 
 const capabilities = ['inventory', 'create_order', 'cancel_order', 'order_status', 'products', 'warehouses'];
 
@@ -339,10 +340,10 @@ async function checkConnection() {
 
     try {
         const { data } = await api.post('/admin/bigseller/check-connection');
-        window.alert(data.message);
+        notify(data.message, 'success');
         await loadStatus();
     } catch (error) {
-        window.alert(errorMessage(error, 'Không thể kiểm tra kết nối.'));
+        notify(errorMessage(error, 'Không thể kiểm tra kết nối.'), 'error');
         await loadStatus();
     } finally {
         busy.value = false;
@@ -359,10 +360,10 @@ async function sync(type) {
 
     try {
         const { data } = await api.post(endpoints[type]);
-        window.alert(data.message || 'Đã đồng bộ.');
+        notify(data.message || 'Đã đồng bộ.', 'success');
         await loadStatus();
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         busy.value = false;
     }
@@ -373,9 +374,9 @@ async function syncOrders() {
 
     try {
         const { data } = await api.post('/admin/bigseller/sync/orders', { as_job: true });
-        window.alert(data.message);
+        notify(data.message, 'success');
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         busy.value = false;
     }
@@ -388,7 +389,7 @@ async function reconcile() {
         const { data } = await api.get('/admin/bigseller/reconcile-skus');
         reconciliation.value = data.data;
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         busy.value = false;
     }
@@ -412,9 +413,9 @@ async function saveSchedule() {
             safety_stock: schedule.safety_stock,
         });
 
-        window.alert('Đã lưu cấu hình đồng bộ.');
+        notify('Đã lưu cấu hình đồng bộ.', 'success');
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -440,9 +441,9 @@ async function saveMapping() {
         mapping.price = null;
 
         await loadMappings();
-        window.alert('Đã tạo ánh xạ SKU.');
+        notify('Đã tạo ánh xạ SKU.', 'success');
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 

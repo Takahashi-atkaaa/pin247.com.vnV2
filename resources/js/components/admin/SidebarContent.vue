@@ -119,5 +119,24 @@ const menu = [
     },
 ];
 
-const isActive = (name) => route.name === name;
+const isActive = (name) => {
+    if (route.name === name) {
+        return true;
+    }
+
+    // Trang con (vd. /admin/products/create) vẫn làm sáng mục cha.
+    const parentOf = {
+        'admin-product-create': 'admin-products',
+        'admin-product-edit': 'admin-products',
+        'admin-product-variant': 'admin-products',
+        'admin-product-variant-units': 'admin-products',
+        'admin-inventory-history': 'admin-inventory',
+        'admin-order-detail': 'admin-orders',
+        'admin-price-tier-create': 'admin-price-list',
+        'admin-price-tier-edit': 'admin-price-list',
+        'admin-customer-detail': 'admin-customers',
+    };
+
+    return parentOf[route.name] === name;
+};
 </script>

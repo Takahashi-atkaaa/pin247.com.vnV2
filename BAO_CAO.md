@@ -492,16 +492,33 @@ route con vào slot của route cha — dùng `<slot />` sẽ khiến phần n�
 | `LoginPage` / `RegisterPage` | Xác thực (nằm trong `StorefrontLayout` — có header/footer) |
 | `NotFoundPage` | 404 (nằm trong `StorefrontLayout`) |
 
-### 8.3. Admin (6 trang)
+### 8.3. Admin (13 trang — không dùng popup)
 
-| Trang | Chức năng |
-|---|---|
-| `DashboardPage` | Thẻ chỉ số, thống kê danh mục, cảnh báo tồn kho thấp, doanh thu (website vs đa sàn — **không gộp** khi chưa có nguồn), banner mock mode |
-| `ProductsPage` | Danh sách, tìm kiếm, lọc theo danh mục/nguồn, modal tạo/sửa kèm biến thể & giá |
-| `InventoryPage` | Bảng SKU (available/reserved/sellable), nút đồng bộ, modal lịch sử thay đổi, mapping kho |
-| `OrdersPage` | Lọc theo trạng thái/thanh toán, đồng bộ lại, đẩy lên BigSeller, hủy đơn, ghi chú nội bộ |
-| `CustomersPage` | Danh sách khách + tổng chi tiêu + modal lịch sử mua hàng |
-| `BigSellerPage` | Trạng thái kết nối, kiểm tra capability, nút đồng bộ thủ công, đối soát SKU, cấu hình lịch, xem log |
+Toàn bộ luồng **thêm / sửa / chi tiết** đều là **trang riêng có URL riêng**, không dùng
+modal/popup. Lý do: deep-link, bookmark, nút Back của trình duyệt, và không mất dữ liệu
+form khi click nhầm ra ngoài.
+
+| Trang | Route | Chức năng |
+|---|---|---|
+| `DashboardPage` | `/admin/dashboard` | Thẻ chỉ số, thống kê danh mục, cảnh báo tồn kho thấp, doanh thu (website vs đa sàn — **không gộp** khi chưa có nguồn), banner mock mode |
+| `ProductsPage` | `/admin/products` | Danh sách, tìm kiếm, lọc theo danh mục/nguồn, thao tác hàng loạt |
+| `ProductFormPage` | `/admin/products/create`<br>`/admin/products/:id/edit` | Tạo / sửa sản phẩm kèm thuộc tính động, biến thể & giá |
+| `ProductVariantPage` | `/admin/products/:id/variants/:variantId` | Chi tiết biến thể: giá, tồn kho, lịch sử cập nhật |
+| `ProductUnitsPage` | `/admin/products/:id/variants/:variantId/units` | Quản lý đơn vị tính (UoM) của 1 biến thể |
+| `InventoryPage` | `/admin/inventory` | Bảng SKU (available/reserved/sellable), nút đồng bộ, mapping kho |
+| `InventoryHistoryPage` | `/admin/inventory/:sku/history` | Lịch sử thay đổi tồn kho của 1 SKU |
+| `OrdersPage` | `/admin/orders` | Lọc theo trạng thái/thanh toán, đồng bộ lại, đẩy lên BigSeller, hủy đơn |
+| `OrderDetailPage` | `/admin/orders/:id` | Chi tiết đơn: khách, sản phẩm, tổng tiền, ghi chú nội bộ |
+| `PriceListPage` | `/admin/bang-gia` | Bậc giá, import từ file, tài liệu bảng giá |
+| `PriceTierFormPage` | `/admin/bang-gia/tiers/create`<br>`/admin/bang-gia/tiers/:id/edit` | Thêm / sửa bậc giá |
+| `CustomersPage` | `/admin/customers` | Danh sách khách + tổng chi tiêu |
+| `CustomerDetailPage` | `/admin/customers/:id` | Lịch sử mua hàng của 1 khách |
+| `BigSellerPage` | `/admin/bigseller` | Trạng thái kết nối, kiểm tra capability, nút đồng bộ thủ công, đối soát SKU, cấu hình lịch, xem log |
+| `SupportPage` | `/admin/support` | Tra cứu user, đặt lại mật khẩu, duyệt yêu cầu hỗ trợ |
+
+**Thông báo & xác nhận:** thay `window.alert()` / `window.confirm()` bằng
+`resources/js/composables/useToast.js` — toast góc phải dưới (`notify()`) và hộp thoại
+xác nhận dạng trang (`confirmDialog()`), không phải popup của trình duyệt.
 
 ### 8.3.1. Nút "Thêm vào giỏ" nhanh trên `ProductCard`
 

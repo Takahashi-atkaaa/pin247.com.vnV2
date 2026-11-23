@@ -174,28 +174,49 @@
 
             <!-- Đơn vị tính -->
             <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900">Đơn vị tính</h3>
                         <p class="text-xs text-gray-500 mt-0.5">
                             Đơn vị cơ bản = giá của biến thể. Đơn vị quy đổi có giá tự tính.
                         </p>
                     </div>
+                    <router-link
+                        :to="{ name: 'admin-product-variant-units', params: { id: productId, variantId: variantId } }"
+                        class="px-4 py-2 border border-brand-300 text-brand-700 rounded-lg text-sm font-medium hover:bg-brand-50"
+                    >
+                        Quản lý đơn vị tính →
+                    </router-link>
                 </div>
 
-                <ProductUnitsEditor
-                    :units="units"
-                    :base-price="variant.effective_price"
-                />
-
-                <button
-                    type="button"
-                    :disabled="saving"
-                    class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
-                    @click="saveUnits"
-                >
-                    {{ saving ? 'Đang lưu...' : 'Lưu đơn vị tính' }}
-                </button>
+                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                            <tr>
+                                <th class="px-3 py-2.5 text-left font-semibold">Đơn vị</th>
+                                <th class="px-3 py-2.5 text-left font-semibold">Tỷ lệ</th>
+                                <th class="px-3 py-2.5 text-left font-semibold">Giá</th>
+                                <th class="px-3 py-2.5 text-left font-semibold">Bán hàng</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr v-for="unit in units" :key="unit.id">
+                                <td class="px-3 py-2.5">
+                                    {{ unit.name }}
+                                    <span v-if="unit.is_base" class="text-[11px] text-brand-600 ml-1">cơ bản</span>
+                                </td>
+                                <td class="px-3 py-2.5">×{{ unit.conversion_rate }}</td>
+                                <td class="px-3 py-2.5 font-medium">{{ formatCurrency(unit.price) }}</td>
+                                <td class="px-3 py-2.5">{{ unit.is_sellable ? 'Có' : 'Không' }}</td>
+                            </tr>
+                            <tr v-if="!units.length">
+                                <td colspan="4" class="px-3 py-6 text-center text-sm text-gray-500">
+                                    Chưa có đơn vị tính.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Lịch sử cập nhật -->
@@ -239,11 +260,14 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import ProductUnitsEditor from '../../components/admin/ProductUnitsEditor.vue';
 import api from '../../services/api';
 import { errorMessage, formatCurrency, formatDate } from '../../composables/useFormat';
+import { notify } from '../../composables/useToast';
 
 const route = useRoute();
+
+const productId = computed(() => route.params.id);
+const variantId = computed(() => route.params.variantId);
 
 const product = ref(null);
 const variant = ref(null);
@@ -325,7 +349,7 @@ async function load() {
         );
         histories.value = historyData.data || [];
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         loading.value = false;
     }
@@ -349,41 +373,14 @@ async function save() {
         variant.value = data.data;
         histories.value = data.data.histories || histories.value;
 
-        window.alert('Đã cập nhật biến thể.');
+        notify('Đã cập nhật biến thể.', 'success');
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         saving.value = false;
     }
 }
 
-async function saveUnits() {
-    saving.value = true;
-
-    try {
-        await api.put(
-            `/admin/products/${product.value.id}/variants/${variant.value.id}/units`,
-            {
-                units: units.value.map((unit) => ({
-                    id: unit.id ?? null,
-                    name: unit.name,
-                    conversion_rate: unit.conversion_rate,
-                    is_base: unit.is_base,
-                    price: unit.price ?? null,
-                    is_sellable: unit.is_sellable,
-                    barcode: unit.barcode ?? null,
-                })),
-            },
-        );
-
-        window.alert('Đã cập nhật đơn vị tính.');
-        await load();
-    } catch (error) {
-        window.alert(errorMessage(error));
-    } finally {
-        saving.value = false;
-    }
-}
 
 onMounted(load);
 </script>

@@ -218,6 +218,7 @@
 import { nextTick, onMounted, reactive, ref } from 'vue';
 import api from '../../services/api';
 import { errorMessage, formatDate } from '../../composables/useFormat';
+import { notify } from '../../composables/useToast';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -247,7 +248,7 @@ async function load() {
 
         rows.value = data.data || [];
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     } finally {
         loading.value = false;
     }
@@ -273,7 +274,7 @@ async function openRequest(row) {
             listEl.value.scrollTop = listEl.value.scrollHeight;
         }
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -290,10 +291,10 @@ async function doLookup() {
         selectedUser.value = null;
 
         if (!candidates.value.length) {
-            window.alert('Không tìm thấy tài khoản nào khớp. Kiểm tra lại email/SĐT.');
+            notify('Không tìm thấy tài khoản nào khớp. Kiểm tra lại email/SĐT.', 'success');
         }
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -320,7 +321,7 @@ async function doReset() {
 
         revealedPassword.value = data.data.password;
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -333,7 +334,7 @@ async function copyPassword() {
             copied.value = false;
         }, 2000);
     } catch {
-        window.alert('Không copy được, hãy chọn và copy thủ công.');
+        notify('Không copy được, hãy chọn và copy thủ công.', 'success');
     }
 }
 
@@ -357,7 +358,7 @@ async function sendReply() {
             listEl.value.scrollTop = listEl.value.scrollHeight;
         }
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 
@@ -368,7 +369,7 @@ async function resolve() {
         await load();
         await openRequest(current.value);
     } catch (error) {
-        window.alert(errorMessage(error));
+        notify(errorMessage(error), 'error');
     }
 }
 

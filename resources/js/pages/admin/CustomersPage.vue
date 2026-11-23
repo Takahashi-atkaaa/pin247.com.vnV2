@@ -46,74 +46,15 @@
             </template>
 
             <template #cell-actions="{ row }">
-                <button
+                <router-link
+                    :to="{ name: 'admin-customer-detail', params: { id: row.id } }"
                     class="px-2 py-1 text-xs border border-gray-300 rounded hover:border-brand-500 hover:text-brand-600"
-                    @click="openDetail(row)"
                 >
                     Lịch sử
-                </button>
+                </router-link>
             </template>
         </DataTable>
 
-        <!-- Modal lịch sử mua hàng -->
-        <Teleport to="body">
-            <div
-                v-if="detail"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
-                @click.self="detail = null"
-            >
-                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
-                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
-                        <h3 class="font-semibold text-gray-900">
-                            Lịch sử mua hàng — {{ detail.name }}
-                        </h3>
-                        <button class="text-gray-400 hover:text-gray-700" @click="detail = null">✕</button>
-                    </div>
-
-                    <div class="p-4 sm:p-6 space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                            <div class="p-4 bg-gray-50 rounded-lg">
-                                <p class="text-xs text-gray-500">Số đơn</p>
-                                <p class="text-xl font-bold text-gray-900">{{ detail.total_orders }}</p>
-                            </div>
-                            <div class="p-4 bg-gray-50 rounded-lg">
-                                <p class="text-xs text-gray-500">Tổng chi tiêu</p>
-                                <p class="text-xl font-bold text-gray-900">{{ formatCurrency(detail.total_spent) }}</p>
-                            </div>
-                            <div class="p-4 bg-gray-50 rounded-lg">
-                                <p class="text-xs text-gray-500">Thông tin liên hệ</p>
-                                <p class="text-sm text-gray-700">{{ detail.phone }}</p>
-                                <p class="text-xs text-gray-500">{{ detail.email || '—' }}</p>
-                            </div>
-                        </div>
-
-                        <div v-if="!detail.orders?.length" class="text-center py-10 text-sm text-gray-500">
-                            Khách hàng chưa có đơn hàng nào.
-                        </div>
-
-                        <div v-for="order in detail.orders || []" :key="order.id" class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                <div>
-                                    <span class="font-mono font-semibold text-gray-900">{{ order.order_code }}</span>
-                                    <span class="text-xs text-gray-500 ml-2">{{ formatDate(order.created_at, true) }}</span>
-                                </div>
-                                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                                    <StatusBadge :status="order.sync_status" :label="order.sync_status_label" />
-                                    <span class="font-semibold text-gray-900">{{ formatCurrency(order.total_amount) }}</span>
-                                </div>
-                            </div>
-                            <ul class="text-sm text-gray-600 space-y-1">
-                                <li v-for="(item, idx) in order.items" :key="idx">
-                                    {{ item.product_name }}
-                                    <span v-if="item.variant_name" class="text-xs text-gray-400">({{ item.variant_name }})</span>
-                                    × {{ item.quantity }} — {{ formatCurrency(item.subtotal) }}
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </div>
 </template>
 
@@ -137,7 +78,6 @@ const columns = [
 const rows = ref([]);
 const meta = ref(null);
 const loading = ref(false);
-const detail = ref(null);
 
 const filters = reactive({
     search: '',
@@ -180,14 +120,6 @@ function changePage(page) {
     load();
 }
 
-async function openDetail(row) {
-    try {
-        const { data } = await api.get(`/admin/customers/${row.id}`);
-        detail.value = data.data;
-    } catch (error) {
-        window.alert(errorMessage(error));
-    }
-}
 
 onMounted(load);
 </script>

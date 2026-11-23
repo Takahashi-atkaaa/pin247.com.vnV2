@@ -145,6 +145,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
     // Bảng giá
     Route::get('/price-list', [AdminPriceListController::class, 'index']);
+    Route::get('/price-list/tiers/{tier}', [AdminPriceListController::class, 'showTier']);
     Route::post('/price-list/tiers', [AdminPriceListController::class, 'storeTier']);
     Route::put('/price-list/tiers/{tier}', [AdminPriceListController::class, 'updateTier']);
     Route::delete('/price-list/tiers/{tier}', [AdminPriceListController::class, 'destroyTier']);

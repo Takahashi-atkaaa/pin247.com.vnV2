@@ -72,6 +72,16 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Tạo user admin (đã xác thực) để gọi API admin.
+     */
+    protected function adminUser(array $attributes = []): \App\Models\User
+    {
+        return \App\Models\User::factory()->create(array_merge([
+            'is_admin' => true,
+        ], $attributes));
+    }
+
+    /**
      * Tạo connection BigSeller ở chế độ mock với đầy đủ capability.
      */
     protected function makeBigSellerConnection(array $capabilities = [

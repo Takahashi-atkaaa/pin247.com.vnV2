@@ -50,6 +50,16 @@ class PriceListController extends Controller
     }
 
     /**
+     * Chi tiết 1 bậc giá (dùng cho trang sửa riêng).
+     */
+    public function showTier(PriceTier $tier): JsonResponse
+    {
+        return response()->json([
+            'data' => new PriceTierResource($tier->load('sku.product', 'sku.variant')),
+        ]);
+    }
+
+    /**
      * Thêm bậc giá.
      */
     public function storeTier(Request $request): JsonResponse

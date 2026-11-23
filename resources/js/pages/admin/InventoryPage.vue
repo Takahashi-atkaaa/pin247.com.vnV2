@@ -100,65 +100,18 @@
             </p>
         </div>
 
-        <!-- Modal lịch sử tồn kho -->
-        <Teleport to="body">
-            <div
-                v-if="historySku"
-                class="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-y-auto py-0 sm:py-8"
-                @click.self="historySku = null"
-            >
-                <div class="bg-white shadow-xl w-full max-w-3xl rounded-t-2xl sm:rounded-xl sm:my-auto my-0">
-                    <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
-                        <h3 class="font-semibold text-gray-900">
-                            Lịch sử tồn kho — <span class="font-mono">{{ historySku }}</span>
-                        </h3>
-                        <button class="text-gray-400 hover:text-gray-700" @click="historySku = null">✕</button>
-                    </div>
-
-                    <div class="p-4 sm:p-6">
-                        <div v-if="!history.length" class="text-center py-10 text-sm text-gray-500">
-                            Chưa có thay đổi nào được ghi nhận.
-                        </div>
-
-                        <table v-else class="w-full text-sm">
-                            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
-                                <tr>
-                                    <th class="px-3 py-2 text-left font-semibold">Thời điểm</th>
-                                    <th class="px-3 py-2 text-right font-semibold">Trước</th>
-                                    <th class="px-3 py-2 text-right font-semibold">Sau</th>
-                                    <th class="px-3 py-2 text-right font-semibold">Chênh lệch</th>
-                                    <th class="px-3 py-2 text-left font-semibold">Lý do</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="log in history" :key="log.id">
-                                    <td class="px-3 py-2 text-xs text-gray-600">
-                                        {{ formatDate(log.created_at, true) }}
-                                    </td>
-                                    <td class="px-3 py-2 text-right">{{ log.previous_available }}</td>
-                                    <td class="px-3 py-2 text-right font-semibold">{{ log.new_available }}</td>
-                                    <td
-                                        class="px-3 py-2 text-right font-semibold"
-                                        :class="log.delta >= 0 ? 'text-green-600' : 'text-red-600'"
-                                    >
-                                        {{ log.delta > 0 ? '+' : '' }}{{ log.delta }}
-                                    </td>
-                                    <td class="px-3 py-2 text-gray-600">{{ log.reason }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
     </div>
 </template>
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import InventoryTable from '../../components/admin/InventoryTable.vue';
 import api from '../../services/api';
 import { errorMessage, formatDate } from '../../composables/useFormat';
+import { notify } from '../../composables/useToast';
+
+const router = useRouter();
 
 const rows = ref([]);
 const meta = ref(null);
@@ -166,8 +119,6 @@ const loading = ref(false);
 const syncing = ref(false);
 const warehouses = ref([]);
 const warehouseMeta = ref(null);
-const history = ref([]);
-const historySku = ref(null);
 
 const filters = reactive({
     search: '',
@@ -219,25 +170,20 @@ async function runSync() {
 
     try {
         const { data } = await api.post('/admin/inventory/sync');
-        window.alert(data.message || 'Đã đồng bộ tồn kho.');
+        notify(data.message || 'Đã đồng bộ tồn kho.', 'success');
         await load();
     } catch (error) {
-        window.alert(errorMessage(error, 'Đồng bộ tồn kho thất bại.'));
+        notify(errorMessage(error, 'Đồng bộ tồn kho thất bại.'), 'error');
     } finally {
         syncing.value = false;
     }
 }
 
-async function openHistory(row) {
-    historySku.value = row.sku;
-    history.value = [];
-
-    try {
-        const { data } = await api.get(`/admin/inventory/history/${encodeURIComponent(row.sku)}`);
-        history.value = data.data || [];
-    } catch (error) {
-        window.alert(errorMessage(error));
-    }
+function openHistory(row) {
+    router.push({
+        name: 'admin-inventory-history',
+        params: { sku: row.sku },
+    });
 }
 
 onMounted(async () => {
