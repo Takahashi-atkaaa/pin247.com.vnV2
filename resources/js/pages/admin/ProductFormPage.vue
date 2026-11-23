@@ -289,8 +289,8 @@ async function load() {
 // -------------------------------------------------------------------------
 
 function openUnits(variant) {
-    if (!form.id) {
-        notify('Hãy lưu sản phẩm trước khi quản lý đơn vị tính.', 'success');
+    if (!form.id || !variant?.id) {
+        notify('Hãy lưu sản phẩm trước khi quản lý đơn vị tính.', 'warning');
         return;
     }
 
